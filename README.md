@@ -45,20 +45,23 @@ it uses the connection `ihc` has already made, so it never needs or stores your 
 - **Coverage:** which resources have no entity yet, and which are linked to nothing in the project.
 
 **Log**
-- The controller's own log (batteries, logins and errors highlighted), sent SMS/e-mail messages, control by e-mail/SMS,
-  and who gets messages on which resource as set up in IHC SceneDesign. Logs can be emptied (password needed).
+- The controller's own log (batteries, logins and errors highlighted), sent SMS/e-mail messages and control by
+  e-mail/SMS. Logs can be emptied (password needed).
 - A **live monitor** of every value change, with filter and CSV export. It listens to the `ihc` integration's own
   notifications, so it takes nothing away from your entities.
 
 **Versions and reports**
 - A copy of the project is kept every time it changes on the controller (the latest 30). Download any copy as a `.vis`
-  file for IHC Visual and see what was added, removed or changed between two versions.
+  file for IHC Visual and see what was added, removed or changed between two versions. The IHC SceneDesign project
+  (scenes, messages, control by e-mail/SMS) is kept the same way and can be downloaded as `.icz`.
 - The three reports of the controller's own report pages – installation documentation, function documentation for the
   residents and function block documentation – to print, save as PDF or download as HTML.
 
 **Administration**
 - Users, time and daylight saving, network, DNS, web access, e-mail (SMTP), e-mail control, SMS modem and system info,
   shown at once from the last saved state while the controller is read in the background; changes are marked.
+- Who gets an SMS or e-mail when a resource changes, and who may control the controller by e-mail/SMS, as set up in
+  IHC SceneDesign (shown with names and phone numbers).
 - Change them like in IHC Administrator. **Every change needs the password of the user Home Assistant is logged in
   with**, only the fields you change are sent, and the settings Home Assistant itself depends on are protected.
 

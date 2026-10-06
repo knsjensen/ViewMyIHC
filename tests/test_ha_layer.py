@@ -784,3 +784,22 @@ async def test_reports_are_built_from_the_loaded_project(hass):
     assert len(hass.data["ihc"][SERIAL]["controller"].client.connection.calls) == calls_before  # no controller call
     inst = (await call(hass, tools_api.ws_report, {"type": "viewmyihc/report", "report": "installation"})).result
     assert [i["terminal"] for i in inst["inputs"]] == ["4.01"]
+
+
+async def test_the_scene_project_is_kept_in_versions_and_can_be_downloaded(hass):
+    from test_scene_project import SceneController, icz
+
+    data = icz()
+    hass.data["ihc"][SERIAL]["controller"] = controller = SceneController(data)
+    first = (await call(hass, tools_api.ws_backups, {"type": "viewmyihc/backups", "kind": "scene"})).result
+    assert first["error"] is None and len(first["backups"]) == 1
+    entry = first["backups"][0]
+    assert entry["name"].endswith(".icz") and (entry["scene_name"], entry["notifications"], entry["controls"]) == ("Hus", 2, 2)
+    again = (await call(hass, tools_api.ws_backups, {"type": "viewmyihc/backups", "kind": "scene"})).result
+    assert len(again["backups"]) == 1 and controller.segment_calls == 2  # unchanged checksum: not fetched again
+    down = (await call(hass, tools_api.ws_backup_download, {"type": "viewmyihc/backup/download", "kind": "scene", "name": entry["name"]})).result
+    assert base64.b64decode(down["data"]) == data
+    ihc_list = (await call(hass, tools_api.ws_backups, {"type": "viewmyihc/backups"})).result["backups"]
+    assert all(not e["name"].endswith(".icz") for e in ihc_list)  # the two kinds are kept apart
+    messages = (await call(hass, tools_api.ws_scene_messages, {"type": "viewmyihc/scene/messages"})).result
+    assert len(messages["notifications"]) == 2 and "icz" not in messages

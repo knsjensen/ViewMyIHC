@@ -250,6 +250,8 @@ const I18N_EXTRA = {
     scEvent: { inactive_to_active_event: "Går til", active_to_inactive_event: "Går fra" },
     scAction: { off_to_on_action: "Tænder", on_to_off_action: "Slukker", pulse_action: "Pulser" },
     scAuthType: { direct_control: "Direkte", sender_based: "Kun kendte afsendere", three_way: "3-vejs bekræftelse" },
+    bkKind_ihc: "IHC-projekt", bkKind_scene: "Scene-projekt (SceneDesign)", bkSceneScenes: "Scener",
+    bkSceneLead: "SceneDesigns projekt med scener, beskeder og styring via e-mail/SMS. En kopi gemmes, hver gang det ændres på controlleren (de seneste 30), og kan hentes som .icz og åbnes i IHC SceneDesign.",
     control: "Styring", ctlInitial: "Startværdi", set: "Sæt", seconds: "sek.",
     ctlLoading: "Henter værdier fra controlleren …", hold: "Hold for at skifte", holding: "Holdes – slip for at skifte tilbage",
     holdHelp: "Skifter værdien, så længe knappen holdes nede (som mellemrumstasten i ServiceView). På mobil: hold fingeren stille et øjeblik – et hurtigt tryk eller en scroll gør ingenting. Mister panelet forbindelsen, skifter Home Assistant selv tilbage efter få sekunder.",
@@ -356,6 +358,8 @@ const I18N_EXTRA = {
     scEvent: { inactive_to_active_event: "Turns on", active_to_inactive_event: "Turns off" },
     scAction: { off_to_on_action: "Switches on", on_to_off_action: "Switches off", pulse_action: "Pulses" },
     scAuthType: { direct_control: "Direct", sender_based: "Known senders only", three_way: "3-way confirmation" },
+    bkKind_ihc: "IHC project", bkKind_scene: "Scene project (SceneDesign)", bkSceneScenes: "Scenes",
+    bkSceneLead: "SceneDesign's project with scenes, messages and control by e-mail/SMS. A copy is kept every time it changes on the controller (the latest 30) and can be downloaded as .icz and opened in IHC SceneDesign.",
     control: "Control", ctlInitial: "Initial value", set: "Set", seconds: "s",
     ctlLoading: "Reading values from the controller …", hold: "Hold to change", holding: "Held – release to switch back",
     holdHelp: "Changes the value for as long as the button is held (like the space bar in ServiceView). On a phone: rest your finger for a moment – a quick tap or a scroll does nothing. If the panel loses its connection, Home Assistant switches back by itself after a few seconds.",
@@ -492,7 +496,7 @@ const CAT_ICON = {
 };
 
 // Must equal "version" in manifest.json / VERSION in const.py (a test checks this)
-const PANEL_VERSION = "0.11.0";
+const PANEL_VERSION = "0.12.0";
 const POLL_MS = 3000;
 const HOLD_INTENT_MS = 150;  // a finger must rest this long on "hold to change" before it counts as a press
 const HOLD_MOVE_PX = 8;      // moving more than this before then is a scroll
@@ -970,6 +974,7 @@ class ViewMyIHCPanel extends HTMLElement {
     }
     if (this._tab === "admin") this._renderBody();
     if (force || Date.now() - this._adminChecked > ADMIN_RECHECK_MS) this._refreshAdmin();
+    if (force || !this._scene) this._loadScene(!!force);
   }
 
   async _refreshAdmin() {
@@ -1328,7 +1333,8 @@ class ViewMyIHCPanel extends HTMLElement {
         ${this._adminSavedAt ? `<span class="fetched">${esc(this.t("updatedAt").replace("{time}", this._clock(this._adminSavedAt)))}</span>` : ""}
         ${marksTotal ? `<button class="btn-text small" data-act="clear-marks">${esc(this.t("clearMarks"))}</button>` : ""}
         <button class="btn small" data-act="refresh-admin" ${this._adminBusy ? "disabled" : ""}>${esc(this.t("refreshAdmin"))}</button></div>
-      <div class="cards">${cards}</div></div>`;
+      <div class="cards">${cards}</div>
+      <div class="admin-scene">${this._sceneHtml()}</div></div>`;
     this._renderAdminBar();
     this._pwCheck();
   }
@@ -1850,7 +1856,6 @@ class ViewMyIHCPanel extends HTMLElement {
     this._logView = this._logView || "userlog";
     if (this._logView === "userlog" && !this._ulog) this._loadUserLog();
     if (this._logView === "messages" && !this._msgs) this._loadMessages();
-    if (this._logView === "messages" && !this._scene) this._loadScene();
     if (this._logView === "monitor") this._monitorPoll(true);
   }
 
@@ -1942,10 +1947,15 @@ class ViewMyIHCPanel extends HTMLElement {
 
   // SceneDesign's own setup: messages on resource changes, and control of the controller by e-mail/SMS (read-only).
   async _loadScene(refresh = false) {
-    this._scene = { ...(this._scene || {}), loading: true, error: "" }; this._renderLogBody();
+    this._scene = { ...(this._scene || {}), loading: true, error: "" }; this._paintScene();
     try { this._scene = { data: await this._ws({ type: "viewmyihc/scene/messages", refresh }) }; }
     catch (e) { this._scene = { error: this._errText(e) }; }
-    this._renderLogBody();
+    this._paintScene();
+  }
+
+  // only the card itself is redrawn, so an admin form being filled in is never touched
+  _paintScene() {
+    const el = this.shadowRoot.querySelector(".admin-scene"); if (el) el.innerHTML = this._sceneHtml();
   }
 
   _sceneHtml() {
@@ -1959,8 +1969,7 @@ class ViewMyIHCPanel extends HTMLElement {
     const who = (list) => list.map((x) => typeof x === "string" ? esc(x)
       : `<span class="slot" title="${esc(this.t("scSlot").replace("{n}", x.slot))}">${esc(x.label || this.t("scSlot").replace("{n}", x.slot))}${x.number ? ` <small>${esc(x.number)}</small>` : ""}</span>`).join("<br>") || "–";
     const chan = (c) => `<span class="chip">${c === "sms" ? "SMS" : "E-mail"}</span>`;
-    const match = (o) => this._logMatch(JSON.stringify(o));
-    const notes = d.notifications.filter(match), ctls = d.controls.filter(match);
+    const notes = d.notifications, ctls = d.controls;
     return `<section class="card acard">${head}
       <h4>${esc(this.t("scNotifications"))} <span class="chip">${notes.length}</span></h4>
       ${notes.length ? `<div class="tablewrap"><table class="tbl"><thead><tr><th>${esc(this.t("scResource"))}</th><th>${esc(this.t("scWhen"))}</th><th></th><th>${esc(this.t("scTo"))}</th><th>${esc(this.t("scMessage"))}</th></tr></thead><tbody>
@@ -1985,7 +1994,7 @@ class ViewMyIHCPanel extends HTMLElement {
     const sent = (m.notifications || []).filter((n) => this._logMatch(JSON.stringify(n)));
     const ctl = (m.control || []).filter((n) => this._logMatch(JSON.stringify(n)));
     const err = (k) => (m.errors?.[k] ? `<p class="adm-err"><ha-icon icon="mdi:alert-outline"></ha-icon>${esc(m.errors[k])}</p>` : "");
-    return `${this._sceneHtml()}<section class="card acard"><h3>${esc(this.t("msgSent"))}<span class="chip">${sent.length}</span>
+    return `<section class="card acard"><h3>${esc(this.t("msgSent"))}<span class="chip">${sent.length}</span>
         <span class="right">${this._clearButton("messages")}<button class="btn small" data-act="reload-messages">${esc(this.t("refreshAdmin"))}</button></span></h3>
       ${this._clearBox("messages")}${err("notifications")}
       ${sent.length ? `<div class="tablewrap"><table class="tbl"><thead><tr><th>${esc(this.t("colTime"))}</th><th>${esc(this.t("colType"))}</th><th>${esc(this.t("colTo"))}</th><th>${esc(this.t("colSubject"))}</th><th>${esc(this.t("colDelivered"))}</th></tr></thead><tbody>
@@ -2066,12 +2075,14 @@ class ViewMyIHCPanel extends HTMLElement {
   // --- versions: backups and what changed
 
   async _loadBackups() {
-    this._bk = { loading: true }; if (this._tab === "versions") this._renderBody();
+    const kind = this._bkKind || "ihc";
+    this._bk = { loading: true, kind }; if (this._tab === "versions") this._renderBody();
     try {
-      const list = (await this._ws({ type: "viewmyihc/backups" })).backups;
-      this._bk = { list, from: list[1]?.name || null, to: list[0]?.name || null };
-      if (list.length > 1) this._compareBackups();
-    } catch (e) { this._bk = { error: this._errText(e) }; }
+      const res = await this._ws({ type: "viewmyihc/backups", kind });
+      const list = res.backups;
+      this._bk = { kind, list, warn: res.error || "", from: list[1]?.name || null, to: list[0]?.name || null };
+      if (kind === "ihc" && list.length > 1) this._compareBackups();
+    } catch (e) { this._bk = { kind, error: this._errText(e) }; }
     if (this._tab === "versions") this._renderBody();
   }
 
@@ -2085,6 +2096,11 @@ class ViewMyIHCPanel extends HTMLElement {
 
   async _downloadBackup(name) {
     try {
+      if (/\.icz$/.test(name)) {  // a SceneDesign project is a zip already
+        const res = await this._ws({ type: "viewmyihc/backup/download", name, kind: "scene" });
+        this._downloadBlob(new Blob([Uint8Array.from(atob(res.data), (c) => c.charCodeAt(0))], { type: "application/zip" }), res.name);
+        return;
+      }
       const res = await this._ws({ type: "viewmyihc/backup/download", name });
       const bytes = Uint8Array.from(atob(res.gzip), (c) => c.charCodeAt(0));
       const plain = await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"))).blob();
@@ -2097,12 +2113,29 @@ class ViewMyIHCPanel extends HTMLElement {
     if (!bk || bk.loading) { body.innerHTML = `<div class="state"><div class="spinner"></div></div>`; return; }
     if (bk.error) { body.innerHTML = this._toolError(bk.error, "reload-backups"); return; }
     const opt = (sel) => bk.list.map((b) => `<option value="${esc(b.name)}" ${b.name === sel ? "selected" : ""}>${esc(this._when(b.saved, true))}${b.modified ? ` · ${esc(this.t("modified"))} ${esc(b.modified)}` : ""}</option>`).join("");
-    body.innerHTML = `<div class="tools">
+    const kinds = ["ihc", "scene"].map((k) => `<button class="seg ${bk.kind === k ? "active" : ""}" data-bkkind="${k}">${esc(this.t("bkKind_" + k))}</button>`).join("");
+    const size = (b) => (b.size >= 1048576 ? (b.size / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b.size / 1024)) + " kB");
+    if (bk.kind === "scene") {
+      body.innerHTML = `<div class="tools"><div class="toolbar flat"><div class="segmented" role="group">${kinds}</div></div>
+        <div class="banner"><ha-icon icon="mdi:shield-lock-outline"></ha-icon><span class="grow">${esc(this.t("bkSceneLead"))}</span></div>
+        <section class="card acard"><h3>${esc(this.t("bkKind_scene"))}<span class="chip">${bk.list.length}</span>
+          <button class="btn small right" data-act="reload-backups">${esc(this.t("refreshAdmin"))}</button></h3>
+          ${bk.warn ? `<p class="adm-err"><ha-icon icon="mdi:alert-outline"></ha-icon>${esc(bk.warn)}</p>` : ""}
+          ${bk.list.length ? `<div class="tablewrap"><table class="tbl"><thead><tr><th>${esc(this.t("bkSaved"))}</th><th>${esc(this.t("name"))}</th>
+            <th>${esc(this.t("bkSceneScenes"))}</th><th>${esc(this.t("scNotifications"))}</th><th>${esc(this.t("scControls"))}</th><th>${esc(this.t("bkSize"))}</th><th></th></tr></thead><tbody>
+            ${bk.list.map((b) => `<tr><td>${esc(this._when(b.saved, true))}</td><td>${esc(b.scene_name || "–")}</td><td>${esc(b.scenes ?? "–")}</td>
+              <td>${esc(b.notifications ?? "–")}</td><td>${esc(b.controls ?? "–")}</td><td>${size(b)}</td>
+              <td><button class="btn-text small" data-act="backup-download" data-name="${esc(b.name)}"><ha-icon icon="mdi:download"></ha-icon> .icz</button></td></tr>`).join("")}</tbody></table></div>`
+            : `<p class="dim">${esc(this.t("bkNone"))}</p>`}
+        </section></div>`;
+      return;
+    }
+    body.innerHTML = `<div class="tools"><div class="toolbar flat"><div class="segmented" role="group">${kinds}</div></div>
       <div class="banner"><ha-icon icon="mdi:shield-lock-outline"></ha-icon><span class="grow">${esc(this.t("bkLead"))}</span></div>
       <section class="card acard"><h3>${esc(this.t("bkTitle"))}<span class="chip">${bk.list.length}</span>
         <button class="btn small right" data-act="reload-backups">${esc(this.t("refreshAdmin"))}</button></h3>
         ${bk.list.length ? `<div class="tablewrap"><table class="tbl"><thead><tr><th>${esc(this.t("bkSaved"))}</th><th>${esc(this.t("modified"))}</th><th>${esc(this.t("resources"))}</th><th>${esc(this.t("bkSize"))}</th><th></th></tr></thead><tbody>
-          ${bk.list.map((b) => `<tr><td>${esc(this._when(b.saved, true))}</td><td>${esc(b.modified || "–")}</td><td>${esc(b.resources ?? "–")}</td><td>${b.size >= 1048576 ? (b.size / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b.size / 1024)) + " kB"}</td>
+          ${bk.list.map((b) => `<tr><td>${esc(this._when(b.saved, true))}</td><td>${esc(b.modified || "–")}</td><td>${esc(b.resources ?? "–")}</td><td>${size(b)}</td>
             <td><button class="btn-text small" data-act="backup-download" data-name="${esc(b.name)}"><ha-icon icon="mdi:download"></ha-icon> .vis</button></td></tr>`).join("")}</tbody></table></div>`
           : `<p class="dim">${esc(this.t("bkNone"))}</p>`}
       </section>
@@ -3106,8 +3139,9 @@ class ViewMyIHCPanel extends HTMLElement {
   // ------------------------------------------------------------------ events
 
   _onClick(e) {
-    const t = e.target.closest("[data-tab],[data-view],[data-copy],[data-jump],[data-act],[data-entfilter],[data-logview],[data-covfilter],[data-dlsel],[data-repkind],.row");
+    const t = e.target.closest("[data-tab],[data-view],[data-copy],[data-jump],[data-act],[data-entfilter],[data-logview],[data-covfilter],[data-dlsel],[data-repkind],[data-bkkind],.row");
     if (!t) return;
+    if (t.dataset.bkkind) { this._bkKind = t.dataset.bkkind; this._loadBackups(); return; }
     if (t.dataset.repkind) { this._rep.kind = t.dataset.repkind; this._loadReport(); return; }
     if (t.dataset.dlsel) { this._select(Number(t.dataset.dlsel)); return; }
     if (t.dataset.logview) { this._logView = t.dataset.logview; this._renderBody(); this._openLog(); return; }
@@ -3405,6 +3439,7 @@ ${REPORT_CSS}
 .maprows li:last-child { border-bottom:0; } .maprows code { min-width:58px; color:var(--vmi-sub); } .maprows .grow { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .mapnote { max-width:40%; text-align:right; } @media (max-width: 700px) { .mapnote { display:none; } }
 .tbl td small { display:block; color:var(--vmi-sub); font-size:11px; } .tbl .slot { white-space:nowrap; } .acard h4 { display:flex; align-items:center; gap:6px; }
+.admin-scene { margin-top:16px; } .admin-scene:empty { display:none; }
 .aform { display:grid; gap:10px; } .field.auth { border-top:1px solid var(--vmi-border); padding-top:10px; margin-top:4px; }
 .field.auth .lbl2 { display:flex; align-items:center; gap:6px; } .field.auth ha-icon { --mdc-icon-size:16px; color:var(--vmi-accent); } .formfoot { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:4px; }
 .acard.editing { border-color:var(--vmi-accent); box-shadow:0 0 0 1px var(--vmi-accent) inset; }

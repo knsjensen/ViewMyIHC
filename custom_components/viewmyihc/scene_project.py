@@ -162,5 +162,7 @@ def read(controller: Any, cached: dict[str, Any] | None) -> dict[str, Any]:
     crc = str(info.get("crc") or "")
     if cached is not None and crc and cached.get("crc") == crc:
         return cached
+    icz = download(controller, info)
+    # "icz": the file itself, only on a fresh download, so the caller can keep a copy (it is not cached)
     return {"crc": crc, "info": {k: info.get(k) for k in ("name", "description", "version", "lastmodified", "size")},
-            **parse(download(controller, info))}
+            **parse(icz), "icz": icz}

@@ -50,6 +50,19 @@ def _command(name: str, schema: dict[Any, Any] | None = None):
     )
 
 
+async def _scene(hass: HomeAssistant, serial: str, controller: Any, refresh: bool) -> dict[str, Any]:
+    """The parsed scene project (cached on the controller's checksum); a freshly downloaded one is also kept in Versions."""
+    cache = _store(hass).setdefault("scene_cache", {})
+    result = await hass.async_add_executor_job(scene_project.read, controller, None if refresh else cache.get(serial))
+    icz = result.pop("icz", None)
+    if icz is not None:
+        info = {"scene_name": result.get("name"), "notifications": len(result["notifications"]),
+                "controls": len(result["controls"]), "scenes": result["scenes"]}
+        await hass.async_add_executor_job(project_backup.save_scene, backup_root(hass), serial, icz, info)
+    cache[serial] = result
+    return result
+
+
 @_command("scene/messages", {vol.Optional("refresh", default=False): bool})
 @websocket_api.require_admin
 @websocket_api.async_response
@@ -60,13 +73,11 @@ async def ws_scene_messages(hass: HomeAssistant, connection: websocket_api.Activ
     except BridgeError as err:
         _fail(connection, msg["id"], err)
         return
-    cache = _store(hass).setdefault("scene_cache", {})
     try:
-        result = await hass.async_add_executor_job(scene_project.read, controller, None if msg["refresh"] else cache.get(serial))
+        result = await _scene(hass, serial, controller, msg["refresh"])
     except (BridgeError, scene_project.SceneProjectError) as err:
         _fail(connection, msg["id"], err)
         return
-    cache[serial] = result
     entry = _store(hass)["projects"].get(serial)
     project: Project | None = entry["project"] if entry else None
 
@@ -264,17 +275,24 @@ def ws_press(hass: HomeAssistant, connection: websocket_api.ActiveConnection, ms
     connection.send_result(msg["id"], {"yaml": text})
 
 
-@_command("backups")
+@_command("backups", {vol.Optional("kind", default="ihc"): vol.In(("ihc", "scene"))})
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_backups(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Saved projects, newest first. For the scene project the controller is checked first (a changed one is saved)."""
     try:
-        serial, _ = _controller(hass, msg.get("controller"))
+        serial, controller = _controller(hass, msg.get("controller"))
     except BridgeError as err:
         _fail(connection, msg["id"], err)
         return
-    entries = await hass.async_add_executor_job(project_backup.list_backups, backup_root(hass), serial)
-    connection.send_result(msg["id"], {"backups": [{k: v for k, v in e.items() if k != "sha256"} for e in entries]})
+    error = None
+    if msg["kind"] == "scene":
+        try:
+            await _scene(hass, serial, controller, False)
+        except (BridgeError, scene_project.SceneProjectError) as err:
+            error = str(err)  # the saved copies are still listed
+    entries = await hass.async_add_executor_job(project_backup.list_backups, backup_root(hass), serial, msg["kind"])
+    connection.send_result(msg["id"], {"backups": [{k: v for k, v in e.items() if k != "sha256"} for e in entries], "error": error})
 
 
 def _diff_blocking(root: Path, serial: str, old: str, new: str) -> dict[str, Any]:
@@ -295,18 +313,24 @@ async def ws_backup_diff(hass: HomeAssistant, connection: websocket_api.ActiveCo
     connection.send_result(msg["id"], result)
 
 
-@_command("backup/download", {vol.Required("name"): str})
+@_command("backup/download", {vol.Required("name"): str, vol.Optional("kind", default="ihc"): vol.In(("ihc", "scene"))})
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_backup_download(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     """The stored file (gzip, base64); the panel unpacks it to a .vis file IHC Visual opens."""
     try:
         serial, _ = _controller(hass, msg.get("controller"))
-        data = await hass.async_add_executor_job(project_backup.read_gzip, backup_root(hass), serial, msg["name"])
+        if msg["kind"] == "scene":
+            data = await hass.async_add_executor_job(project_backup.read_scene, backup_root(hass), serial, msg["name"])
+        else:
+            data = await hass.async_add_executor_job(project_backup.read_gzip, backup_root(hass), serial, msg["name"])
     except (BridgeError, project_backup.BackupError) as err:
         _fail(connection, msg["id"], err)
         return
-    connection.send_result(msg["id"], {"name": msg["name"].removesuffix(".gz"), "gzip": base64.b64encode(data).decode()})
+    if msg["kind"] == "scene":  # an .icz is a zip already: handed over as it is
+        connection.send_result(msg["id"], {"name": msg["name"], "data": base64.b64encode(data).decode()})
+    else:
+        connection.send_result(msg["id"], {"name": msg["name"].removesuffix(".gz"), "gzip": base64.b64encode(data).decode()})
 
 
 def _monitor(hass: HomeAssistant, serial: str) -> EventMonitor:

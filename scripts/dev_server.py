@@ -405,10 +405,18 @@ def handle(msg: dict):
     if kind == "press":
         return {"yaml": vpress.press_automation(msg["entity_id"], msg.get("name", ""), msg.get("long_ms", 800), msg.get("double_ms", 400), msg.get("language", "en"))}
     if kind == "backups":
-        return {"backups": [{k: v for k, v in b.items() if k != "xml"} for b in BACKUPS]}
+        if msg.get("kind") == "scene":
+            return {"error": None, "backups": [{"name": "20261006-221500-cccccccc.icz", "saved": time.time() - 7200, "size": 18432,
+                                                "scene_name": "Demo", "scenes": 3, "notifications": 2, "controls": 2}]}
+        return {"error": None, "backups": [{k: v for k, v in b.items() if k != "xml"} for b in BACKUPS]}
     if kind == "backup/diff":
         by = {b["name"]: b["xml"] for b in BACKUPS}
         return vdiff.diff(vparser.Project(by[msg["old"]]), vparser.Project(by[msg["new"]]))
+    if kind == "backup/download" and msg.get("kind") == "scene":
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            archive.writestr("project.icw", '<icwproject version="2" name="Demo"/>')
+        return {"name": msg["name"], "data": base64.b64encode(buffer.getvalue()).decode()}
     if kind == "backup/download":
         xml = next(b["xml"] for b in BACKUPS if b["name"] == msg["name"])
         return {"name": msg["name"].removesuffix(".gz"), "gzip": base64.b64encode(gzip.compress(xml.encode("iso-8859-1"))).decode()}
