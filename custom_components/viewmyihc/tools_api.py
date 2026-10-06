@@ -3,6 +3,7 @@ project backups/diff and the live monitor. All read-only towards the controller;
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 import time
@@ -14,11 +15,11 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 
-from . import controller_info, project_backup, scene_project
+from . import controller_info, project_backup, project_restore, scene_project
 from .dataline_cache import DatalineCache
 from .dataline_layout import layout
 from .event_monitor import EventMonitor
-from .ihc_bridge import BridgeError
+from .ihc_bridge import BridgeError, fetch_project_xml
 from .press_automation import press_automation
 from .project_diff import diff
 from .project_parser import Project, ProjectError
@@ -26,7 +27,7 @@ from .product_images import ProductImages
 from .report_builder import REPORTS
 from .wiring_map import wiring
 from .admin_api import WrongPassword, _check_password
-from .websocket_api import _controller, _fail, _loaded, _store
+from .websocket_api import _controller, _fail, _holds, _load_blocking, _loaded, _store
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ def backup_root(hass: HomeAssistant) -> Path:
 @callback
 def async_register(hass: HomeAssistant) -> None:
     for handler in (
-        ws_scene_messages, ws_map, ws_map_images, ws_report, ws_log, ws_log_clear, ws_messages, ws_dataline, ws_coverage, ws_press, ws_backups, ws_backup_diff, ws_backup_download,
+        ws_backup_restore, ws_scene_messages, ws_map, ws_map_images, ws_report, ws_log, ws_log_clear, ws_messages, ws_dataline, ws_coverage, ws_press, ws_backups, ws_backup_diff, ws_backup_download,
         ws_monitor_start, ws_monitor_events, ws_monitor_clear,
     ):
         websocket_api.async_register_command(hass, handler)
@@ -331,6 +332,57 @@ async def ws_backup_download(hass: HomeAssistant, connection: websocket_api.Acti
         connection.send_result(msg["id"], {"name": msg["name"], "data": base64.b64encode(data).decode()})
     else:
         connection.send_result(msg["id"], {"name": msg["name"].removesuffix(".gz"), "gzip": base64.b64encode(data).decode()})
+
+
+@_command("backup/restore", {vol.Required("name"): str, vol.Optional("kind", default="ihc"): vol.In(("ihc", "scene")),
+                              vol.Required("auth"): str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_backup_restore(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Send a saved version back to the controller. The current one is saved first, so the restore can be undone."""
+    store = _store(hass)
+    lock: asyncio.Lock = store.setdefault("restore_lock", asyncio.Lock())
+    if lock.locked():
+        connection.send_error(msg["id"], "busy", "A restore is already running")
+        return
+    async with lock:
+        try:
+            serial, controller = _controller(hass, msg.get("controller"))
+            _check_password(serial, controller, msg["auth"])
+            root = backup_root(hass)
+            if msg["kind"] == "scene":
+                icz = await hass.async_add_executor_job(project_backup.read_scene, root, serial, msg["name"])
+                await _scene(hass, serial, controller, True)  # the current one is kept in Versions first
+                await hass.async_add_executor_job(project_restore.restore_scene, controller, icz)
+                store.setdefault("scene_cache", {}).pop(serial, None)
+                result: dict[str, Any] = {"kind": "scene"}
+            else:
+                xml = await hass.async_add_executor_job(project_backup.read, root, serial, msg["name"])
+                project_restore.check_project(xml)
+                await _holds(hass).release_all()
+
+                def keep_current() -> None:
+                    current = fetch_project_xml(controller)
+                    project_backup.save(root, serial, current, {"note": "before restore"})
+
+                await hass.async_add_executor_job(keep_current)  # no copy of the current project: no restore
+                final = await hass.async_add_executor_job(
+                    project_restore.restore_project, controller, xml, msg["name"].removesuffix(".gz"))
+                entry = await hass.async_add_executor_job(_load_blocking, controller, None, True, root, serial)
+                store["projects"][serial] = entry
+                result = {"kind": "ihc", "state": final, "info": entry["project"].info}
+        except WrongPassword as err:
+            connection.send_error(msg["id"], "wrong_password", str(err))
+            return
+        except (project_restore.RestoreError, project_backup.BackupError, scene_project.SceneProjectError) as err:
+            _LOGGER.warning("ViewMyIHC: restore of %s failed: %s", msg["name"], err)
+            connection.send_error(msg["id"], "restore_failed", str(err))
+            return
+        except BridgeError as err:
+            _fail(connection, msg["id"], err)
+            return
+    _LOGGER.warning("ViewMyIHC: restored %s on the controller", msg["name"])
+    connection.send_result(msg["id"], result)
 
 
 def _monitor(hass: HomeAssistant, serial: str) -> EventMonitor:

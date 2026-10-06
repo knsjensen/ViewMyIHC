@@ -385,6 +385,11 @@ def handle(msg: dict):
         builder = vreport.REPORTS[msg["report"]]
         result = builder(PROJECT, msg.get("only_marked", True)) if msg["report"] == "function" else builder(PROJECT)
         return {**result, "info": PROJECT.info}
+    if kind == "backup/restore":
+        if msg.get("auth") != "dev":
+            raise DevError("wrong_password", "Wrong password")
+        time.sleep(DEV["delay"] * 2)  # the controller restarts its program
+        return {"kind": msg.get("kind", "ihc"), "state": "text.ctrl.state.ready", "info": PROJECT.info}
     if kind == "log/clear":
         if msg.get("auth") != "dev":
             raise DevError("wrong_password", "Wrong password")

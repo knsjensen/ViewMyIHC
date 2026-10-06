@@ -54,6 +54,9 @@ it uses the connection `ihc` has already made, so it never needs or stores your 
 - A copy of the project is kept every time it changes on the controller (the latest 30). Download any copy as a `.vis`
   file for IHC Visual and see what was added, removed or changed between two versions. The IHC SceneDesign project
   (scenes, messages, control by e-mail/SMS) is kept the same way and can be downloaded as `.icz`.
+- **Restore** any saved version on the controller (password and confirmation needed; the current version is kept first).
+  Restoring an IHC project restarts the controller's program, so outputs and counters start again from their initial
+  values.
 - The three reports of the controller's own report pages – installation documentation, function documentation for the
   residents and function block documentation – to print, save as PDF or download as HTML.
 
@@ -111,6 +114,7 @@ Reading is the default. The controller is only changed when you ask for it:
 | Initial value | Detail panel | Asks for confirmation |
 | Users, network, DNS, web access, time, e-mail | Administration | Password of the `ihc` user for every change; changes that can cut the connection need an extra confirmation; Home Assistant's own user and its access cannot be removed |
 | Emptying a log | Log | Password of the `ihc` user |
+| Restoring a saved project | Versions | Password of the `ihc` user and an explicit confirmation; the current project is saved first; project change mode is always left again and the controller must report ready |
 
 **Privacy:** the project copies under *Versions* (`.storage/viewmyihc_backups`) hold the whole project – including
 customer data, the SMS phone numbers and the SIM card's PIN code – exactly like the project file on the controller.

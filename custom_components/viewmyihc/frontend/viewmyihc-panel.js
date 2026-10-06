@@ -252,6 +252,13 @@ const I18N_EXTRA = {
     scAuthType: { direct_control: "Direkte", sender_based: "Kun kendte afsendere", three_way: "3-vejs bekræftelse" },
     bkKind_ihc: "IHC-projekt", bkKind_scene: "Scene-projekt (SceneDesign)", bkSceneScenes: "Scener",
     bkSceneLead: "SceneDesigns projekt med scener, beskeder og styring via e-mail/SMS. En kopi gemmes, hver gang det ændres på controlleren (de seneste 30), og kan hentes som .icz og åbnes i IHC SceneDesign.",
+    rsButton: "Genindlæs", rsTitle: "Genindlæs versionen fra {time} på controlleren",
+    rsPoints: "Controlleren går i projektændring, får denne version og starter den op – huset kan være utilgængeligt i op til et par minutter.|Udgange, tællere og andre værdier starter forfra fra deres startværdier, og udgange kan kortvarigt slukke.|Det nuværende projekt gemmes først her under Versioner, så du kan genindlæse det igen.|ViewMyIHC afslutter altid projektændringen og venter på, at controlleren er klar. Går noget galt, kan projektet også sendes fra IHC Visual.",
+    rsScenePoints: "SceneDesigns projekt på controlleren erstattes: scener, beskeder ved hændelser og styring via e-mail/SMS.|Det nuværende scene-projekt gemmes først her under Versioner.|Bagefter hentes det tilbage fra controlleren og sammenlignes med det sendte.",
+    rsUnderstood: "Jeg forstår konsekvenserne og vil genindlæse denne version",
+    rsBusy: "Sender projektet og venter på, at controlleren er klar igen … (op til 3 minutter – luk ikke siden)",
+    rsSceneBusy: "Sender scene-projektet og kontrollerer det …", rsDone: "Versionen er genindlæst – controlleren er klar",
+    rsSceneDone: "Scene-projektet er genindlæst og kontrolleret", rsFailed: "Genindlæsningen lykkedes ikke:",
     control: "Styring", ctlInitial: "Startværdi", set: "Sæt", seconds: "sek.",
     ctlLoading: "Henter værdier fra controlleren …", hold: "Hold for at skifte", holding: "Holdes – slip for at skifte tilbage",
     holdHelp: "Skifter værdien, så længe knappen holdes nede (som mellemrumstasten i ServiceView). På mobil: hold fingeren stille et øjeblik – et hurtigt tryk eller en scroll gør ingenting. Mister panelet forbindelsen, skifter Home Assistant selv tilbage efter få sekunder.",
@@ -360,6 +367,13 @@ const I18N_EXTRA = {
     scAuthType: { direct_control: "Direct", sender_based: "Known senders only", three_way: "3-way confirmation" },
     bkKind_ihc: "IHC project", bkKind_scene: "Scene project (SceneDesign)", bkSceneScenes: "Scenes",
     bkSceneLead: "SceneDesign's project with scenes, messages and control by e-mail/SMS. A copy is kept every time it changes on the controller (the latest 30) and can be downloaded as .icz and opened in IHC SceneDesign.",
+    rsButton: "Restore", rsTitle: "Restore the version from {time} on the controller",
+    rsPoints: "The controller enters project change mode, receives this version and starts it – the house can be unavailable for up to a few minutes.|Outputs, counters and other values start again from their initial values, and outputs can switch off briefly.|The current project is kept here under Versions first, so you can restore it again.|ViewMyIHC always leaves project change mode and waits until the controller is ready. If something goes wrong, the project can also be sent from IHC Visual.",
+    rsScenePoints: "SceneDesign's project on the controller is replaced: scenes, messages on events and control by e-mail/SMS.|The current scene project is kept here under Versions first.|Afterwards it is fetched back from the controller and compared with what was sent.",
+    rsUnderstood: "I understand the consequences and want to restore this version",
+    rsBusy: "Sending the project and waiting until the controller is ready again … (up to 3 minutes – keep this page open)",
+    rsSceneBusy: "Sending the scene project and checking it …", rsDone: "The version was restored – the controller is ready",
+    rsSceneDone: "The scene project was restored and checked", rsFailed: "The restore did not succeed:",
     control: "Control", ctlInitial: "Initial value", set: "Set", seconds: "s",
     ctlLoading: "Reading values from the controller …", hold: "Hold to change", holding: "Held – release to switch back",
     holdHelp: "Changes the value for as long as the button is held (like the space bar in ServiceView). On a phone: rest your finger for a moment – a quick tap or a scroll does nothing. If the panel loses its connection, Home Assistant switches back by itself after a few seconds.",
@@ -496,7 +510,7 @@ const CAT_ICON = {
 };
 
 // Must equal "version" in manifest.json / VERSION in const.py (a test checks this)
-const PANEL_VERSION = "0.12.0";
+const PANEL_VERSION = "0.13.0";
 const POLL_MS = 3000;
 const HOLD_INTENT_MS = 150;  // a finger must rest this long on "hold to change" before it counts as a press
 const HOLD_MOVE_PX = 8;      // moving more than this before then is a scroll
@@ -2108,6 +2122,50 @@ class ViewMyIHCPanel extends HTMLElement {
     } catch (e) { this._showToast(this._errText(e)); }
   }
 
+  // ---- restore a saved version to the controller (password + an explicit "I understand")
+
+  _restoreButton(b) {
+    return `<button class="btn-text small danger" data-act="backup-restore" data-name="${esc(b.name)}" data-saved="${b.saved}" ${this._restore?.busy ? "disabled" : ""}>
+      <ha-icon icon="mdi:backup-restore"></ha-icon>${esc(this.t("rsButton"))}</button>`;
+  }
+
+  _restoreBox(kind) {
+    const r = this._restore; if (!r || r.kind !== kind) return "";
+    const points = this.t(kind === "scene" ? "rsScenePoints" : "rsPoints").split("|");
+    return `<div class="clearbox restorebox"><h4 class="tight">${esc(this.t("rsTitle").replace("{time}", this._when(r.saved, true)))}</h4>
+      <ul class="rspoints">${points.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
+      ${r.busy ? `<p class="rsbusy"><span class="spinner small"></span>${esc(this.t(kind === "scene" ? "rsSceneBusy" : "rsBusy"))}</p>` : `
+        <label class="switchrow danger"><input type="checkbox" data-act="restore-understood" ${r.understood ? "checked" : ""}/><span>${esc(this.t("rsUnderstood"))}</span></label>
+        <label class="field auth"><span class="lbl2"><ha-icon icon="mdi:shield-key-outline"></ha-icon>${esc(this.t("adminAuth").replace("{user}", this._haUser || "ihc"))}</span>
+          <input type="password" autocomplete="current-password" data-restoreauth value="" /></label>
+        ${r.error ? `<p class="ferr box">${esc(r.error)}</p>` : ""}
+        <div class="formfoot"><span class="grow"></span><button class="btn-text" data-act="restore-cancel">${esc(this.t("cancel"))}</button>
+          <button class="btn small danger" data-act="restore-go" ${r.understood ? "" : "disabled"}>${esc(this.t("rsButton"))}</button></div>`}
+    </div>`;
+  }
+
+  async _restoreGo() {
+    const r = this._restore; if (!r || r.busy) return;
+    const auth = this.shadowRoot.querySelector("[data-restoreauth]")?.value || "";
+    if (!auth) { r.error = this.t("adminAuthMissing"); this._renderBody(); return; }
+    r.busy = true; r.error = ""; this._renderBody();
+    try {
+      await this._ws({ type: "viewmyihc/backup/restore", name: r.name, kind: r.kind, auth });
+      this._restore = null;
+      this._showToast(this.t(r.kind === "scene" ? "rsSceneDone" : "rsDone"));
+      if (r.kind === "ihc") { this._kids.clear(); this._load(false).then(() => this._switchTab("versions")); }
+      else { this._scene = null; }
+      this._loadBackups();
+      return;
+    } catch (err) {
+      r.busy = false;
+      r.error = err && err.code === "wrong_password"
+        ? (/many/i.test(err.message || "") ? this.t("adminAuthLocked") : this.t("adminAuthWrong"))
+        : `${this.t("rsFailed")} ${this._errText(err)}`;
+    }
+    this._renderBody();
+  }
+
   _renderVersions(body) {
     const bk = this._bk;
     if (!bk || bk.loading) { body.innerHTML = `<div class="state"><div class="spinner"></div></div>`; return; }
@@ -2125,8 +2183,10 @@ class ViewMyIHCPanel extends HTMLElement {
             <th>${esc(this.t("bkSceneScenes"))}</th><th>${esc(this.t("scNotifications"))}</th><th>${esc(this.t("scControls"))}</th><th>${esc(this.t("bkSize"))}</th><th></th></tr></thead><tbody>
             ${bk.list.map((b) => `<tr><td>${esc(this._when(b.saved, true))}</td><td>${esc(b.scene_name || "–")}</td><td>${esc(b.scenes ?? "–")}</td>
               <td>${esc(b.notifications ?? "–")}</td><td>${esc(b.controls ?? "–")}</td><td>${size(b)}</td>
-              <td><button class="btn-text small" data-act="backup-download" data-name="${esc(b.name)}"><ha-icon icon="mdi:download"></ha-icon> .icz</button></td></tr>`).join("")}</tbody></table></div>`
+              <td class="nowrap"><button class="btn-text small" data-act="backup-download" data-name="${esc(b.name)}"><ha-icon icon="mdi:download"></ha-icon> .icz</button>
+                ${this._restoreButton(b)}</td></tr>`).join("")}</tbody></table></div>`
             : `<p class="dim">${esc(this.t("bkNone"))}</p>`}
+          ${this._restoreBox("scene")}
         </section></div>`;
       return;
     }
@@ -2136,8 +2196,10 @@ class ViewMyIHCPanel extends HTMLElement {
         <button class="btn small right" data-act="reload-backups">${esc(this.t("refreshAdmin"))}</button></h3>
         ${bk.list.length ? `<div class="tablewrap"><table class="tbl"><thead><tr><th>${esc(this.t("bkSaved"))}</th><th>${esc(this.t("modified"))}</th><th>${esc(this.t("resources"))}</th><th>${esc(this.t("bkSize"))}</th><th></th></tr></thead><tbody>
           ${bk.list.map((b) => `<tr><td>${esc(this._when(b.saved, true))}</td><td>${esc(b.modified || "–")}</td><td>${esc(b.resources ?? "–")}</td><td>${size(b)}</td>
-            <td><button class="btn-text small" data-act="backup-download" data-name="${esc(b.name)}"><ha-icon icon="mdi:download"></ha-icon> .vis</button></td></tr>`).join("")}</tbody></table></div>`
+            <td class="nowrap"><button class="btn-text small" data-act="backup-download" data-name="${esc(b.name)}"><ha-icon icon="mdi:download"></ha-icon> .vis</button>
+              ${this._restoreButton(b)}</td></tr>`).join("")}</tbody></table></div>`
           : `<p class="dim">${esc(this.t("bkNone"))}</p>`}
+        ${this._restoreBox("ihc")}
       </section>
       ${bk.list.length > 1 ? `<section class="card acard"><h3>${esc(this.t("bkCompare"))}</h3>
         <div class="cmp"><label class="field"><span class="lbl2">${esc(this.t("bkFrom"))}</span><select data-bk="from">${opt(bk.from)}</select></label>
@@ -2936,6 +2998,14 @@ class ViewMyIHCPanel extends HTMLElement {
       case "monitor-clear": this._ws({ type: "viewmyihc/monitor/clear" }).catch(() => {}); this._mon.events = []; this._renderLogBody(); return true;
       case "reload-backups": this._loadBackups(); return true;
       case "backup-download": this._downloadBackup(t.dataset.name); return true;
+      case "backup-restore":
+        if (!this._restore?.busy) this._restore = { name: t.dataset.name, saved: Number(t.dataset.saved), kind: /\.icz$/.test(t.dataset.name) ? "scene" : "ihc" };
+        this._renderBody(); this.shadowRoot.querySelector(".restorebox")?.scrollIntoView({ block: "nearest", behavior: "smooth" }); return true;
+      case "restore-understood":  // no redraw: a password already typed must stay
+        if (this._restore) { this._restore.understood = t.checked; const go = this.shadowRoot.querySelector('[data-act="restore-go"]'); if (go) go.disabled = !t.checked; }
+        return true;
+      case "restore-cancel": if (!this._restore?.busy) this._restore = null; this._renderBody(); return true;
+      case "restore-go": this._restoreGo(); return true;
       case "press-make": this._pressMake(); return true;
       case "press-copy": this._copy(this._press?.yaml || ""); return true;
       default: return false;
@@ -3440,6 +3510,8 @@ ${REPORT_CSS}
 .mapnote { max-width:40%; text-align:right; } @media (max-width: 700px) { .mapnote { display:none; } }
 .tbl td small { display:block; color:var(--vmi-sub); font-size:11px; } .tbl .slot { white-space:nowrap; } .acard h4 { display:flex; align-items:center; gap:6px; }
 .admin-scene { margin-top:16px; } .admin-scene:empty { display:none; }
+.restorebox { margin-top:14px; } .rspoints { margin:2px 0 4px; padding-left:18px; display:grid; gap:4px; font-size:13px; }
+.rspoints li { list-style:disc; } .rsbusy { display:flex; align-items:center; gap:10px; font-size:13px; margin:6px 0 0; }
 .aform { display:grid; gap:10px; } .field.auth { border-top:1px solid var(--vmi-border); padding-top:10px; margin-top:4px; }
 .field.auth .lbl2 { display:flex; align-items:center; gap:6px; } .field.auth ha-icon { --mdc-icon-size:16px; color:var(--vmi-accent); } .formfoot { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:4px; }
 .acard.editing { border-color:var(--vmi-accent); box-shadow:0 0 0 1px var(--vmi-accent) inset; }

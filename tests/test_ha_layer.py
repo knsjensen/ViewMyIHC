@@ -803,3 +803,29 @@ async def test_the_scene_project_is_kept_in_versions_and_can_be_downloaded(hass)
     assert all(not e["name"].endswith(".icz") for e in ihc_list)  # the two kinds are kept apart
     messages = (await call(hass, tools_api.ws_scene_messages, {"type": "viewmyihc/scene/messages"})).result
     assert len(messages["notifications"]) == 2 and "icz" not in messages
+
+
+async def test_restoring_a_version_needs_the_password_and_keeps_the_current_one_first(hass):
+    from test_project_restore import RestoringController
+
+    admin_api._failures.clear()
+    hass.data["ihc"][SERIAL]["controller"] = controller = RestoringController()
+    await load_project(hass)
+    old_xml = fakes.sample_xml_as_ihcsdk_returns_it()
+    controller.client.get_project_in_segments = lambda info=None: old_xml.replace('name="Lampeudtag"', 'name="Stik"')
+    controller.client.get_project_info = lambda: {"projectMajorRevision": 2}
+    await load_project(hass)
+    listed = (await call(hass, tools_api.ws_backups, {"type": "viewmyihc/backups"})).result["backups"]
+    oldest = listed[-1]["name"]
+
+    msg = {"type": "viewmyihc/backup/restore", "name": oldest}
+    wrong = await call(hass, tools_api.ws_backup_restore, {**msg, "auth": "gæt"})
+    assert wrong.error[0] == "wrong_password" and "storeIHCProject" not in controller.order
+    done = await call(hass, tools_api.ws_backup_restore, {**msg, "auth": "hemmeligt"})
+    assert done.error is None, done.error
+    assert done.result["state"] == "text.ctrl.state.ready"
+    assert controller.stored == old_xml.encode("iso-8859-1")  # exactly the saved version went back
+    assert controller.order[-1] == "waitForControllerStateChange" and "exitProjectChangeMode" in controller.order
+    unknown = await call(hass, tools_api.ws_backup_restore, {**msg, "name": "../../x.vis.gz", "auth": "hemmeligt"})
+    assert unknown.error[0] == "restore_failed"
+    admin_api._failures.clear()
