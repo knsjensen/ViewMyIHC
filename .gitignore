@@ -1,0 +1,18 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.dev_server.log
+# real IHC project files hold customer data, phone numbers and the SMS PIN
+*.vis
+!tests/fixtures/sample_project.vis
+research/
+# local working notes and tool settings
+docs/
+.claude/
+CLAUDE.md
+.vscode/
+.idea/
+# local troubleshooting tools for one installation
+scripts/Test-IhcLogin.ps1
+scripts/ServiceView-http.jnlp

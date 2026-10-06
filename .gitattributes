@@ -1,0 +1,5 @@
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+# IHC project files are ISO-8859-1 XML: keep their bytes exactly
+*.vis -text

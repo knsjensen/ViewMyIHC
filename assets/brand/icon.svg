@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#18b4ee"/>
+      <stop offset="1" stop-color="#1e48c8"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.28" cy="0.2" r="0.8">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.38"/>
+      <stop offset="0.6" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="lens" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.38"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.12"/>
+    </linearGradient>
+  </defs>
+  <!-- app tile -->
+  <rect width="256" height="256" rx="58" fill="url(#bg)"/>
+  <rect width="256" height="256" rx="58" fill="url(#glow)"/>
+
+  <g transform="translate(-14 -6)">
+  <!-- house -->
+  <path d="M62 118 V190 a14 14 0 0 0 14 14 H162 a14 14 0 0 0 14 -14 V118" fill="#ffffff" fill-opacity="0.14"
+        stroke="#ffffff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M40 126 L119 54 L198 126" fill="none" stroke="#ffffff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- project tree inside the house -->
+  <g stroke="#ffffff" stroke-width="7" stroke-linecap="round" fill="none">
+    <path d="M119 118 V138 M119 138 H94 V158 M119 138 H144 V158"/>
+  </g>
+  <circle cx="119" cy="112" r="11" fill="#ffffff"/>
+  <circle cx="94" cy="166" r="10" fill="#ffffff"/>
+  <circle cx="144" cy="166" r="10" fill="#ffffff"/>
+  </g>
+
+  <!-- magnifier: "view" -->
+  <circle cx="184" cy="176" r="31" fill="url(#lens)"/>
+  <circle cx="184" cy="176" r="31" fill="none" stroke="#ffc933" stroke-width="12"/>
+  <path d="M207 199 L229 221" stroke="#ffc933" stroke-width="14" stroke-linecap="round"/>
+  <path d="M166 166 a20 20 0 0 1 13 -10" fill="none" stroke="#ffffff" stroke-opacity="0.85" stroke-width="6" stroke-linecap="round"/>
+</svg>

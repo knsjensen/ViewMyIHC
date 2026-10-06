@@ -1,0 +1,11 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "ViewMyIHC",
+        "description": "Tilføjer et panel i sidebjælken, der viser dit IHC-projekt og controllerens indstillinger. Det bruger forbindelsen fra den indbyggede IHC-integration, så der skal ikke indtastes koder her."
+      }
+    },
+    "abort": { "single_instance_allowed": "ViewMyIHC er allerede sat op." }
+  }
+}

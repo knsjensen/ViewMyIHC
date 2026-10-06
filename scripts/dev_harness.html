@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ViewMyIHC – dev harness</title>
+<style>
+  /* Home Assistant default light theme variables */
+  :root { --primary-color:#03a9f4; --primary-text-color:#212121; --secondary-text-color:#727272;
+    --primary-background-color:#fafafa; --secondary-background-color:#e5e5e5; --card-background-color:#fff;
+    --divider-color:rgba(0,0,0,.12); --app-header-background-color:#fff; --app-header-text-color:#212121;
+    --text-primary-color:#fff; --ha-card-border-radius:12px; --success-color:#43a047; --error-color:#db4437; }
+  :root.dark { --primary-text-color:#e1e1e1; --secondary-text-color:#9b9b9b; --primary-background-color:#111111;
+    --secondary-background-color:#282828; --card-background-color:#1c1c1c; --divider-color:rgba(225,225,225,.12);
+    --app-header-background-color:#1c1c1c; --app-header-text-color:#e1e1e1; }
+  html, body { margin:0; height:100%; background:var(--primary-background-color); }
+  viewmyihc-panel { height:100vh; }
+  .theme { position:fixed; right:70px; top:10px; z-index:10; font:12px sans-serif; }
+</style>
+</head>
+<body>
+<button class="theme" onclick="document.documentElement.classList.toggle('dark')">light/dark</button>
+<script>
+// Minimal stand-in for Home Assistant's <ha-icon>: renders an MDI glyph tinted with currentColor.
+class HaIcon extends HTMLElement {
+  static get observedAttributes() { return ["icon"]; }
+  connectedCallback() { this._paint(); }
+  attributeChangedCallback() { this._paint(); }
+  set icon(v) { this.setAttribute("icon", v); }
+  _paint() {
+    const name = (this.getAttribute("icon") || "").replace("mdi:", "");
+    const size = "var(--mdc-icon-size, 24px)";
+    this.style.cssText = `display:inline-block;width:${size};height:${size};background:currentColor;` +
+      `-webkit-mask:url(https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/${name}.svg) center/contain no-repeat;` +
+      `mask:url(https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/${name}.svg) center/contain no-repeat;flex:none;`;
+  }
+}
+customElements.define("ha-icon", HaIcon);
+</script>
+<script src="/viewmyihc-panel.js"></script>
+<script>
+window.__msgId = 0;
+const panel = document.createElement("viewmyihc-panel");
+document.body.appendChild(panel);
+panel.narrow = innerWidth < 900;
+addEventListener("resize", () => (panel.narrow = innerWidth < 900));
+panel.hass = {
+  // like Home Assistant: live entity states and areas are part of the hass object
+  states: {
+    "binary_sensor.stue_tryk": { state: "off", attributes: {} },
+    "light.koekken_loft": { state: "unavailable", attributes: {} },
+  },
+  areas: { kitchen: { name: "Køkken" } },
+  language: new URLSearchParams(location.search).get("lang") || "da",
+  callWS: async (msg) => {
+    msg = { ...msg, id: ++window.__msgId };
+    (window.__calls = window.__calls || []).push(msg.type);  // like Home Assistant: the client owns the "id" field
+    const res = await (await fetch("/ws", { method: "POST", body: JSON.stringify(msg) })).json();
+    if (res.error) throw res.error;
+    return res.result;
+  },
+};
+</script>
+</body>
+</html>

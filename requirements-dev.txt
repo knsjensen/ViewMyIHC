@@ -1,0 +1,6 @@
+pytest
+pytest-asyncio
+homeassistant==2026.9.4
+ihcsdk==2.8.12
+defusedxml==0.7.1
+PyYAML

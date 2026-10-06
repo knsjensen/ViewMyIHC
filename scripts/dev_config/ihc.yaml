@@ -1,0 +1,5 @@
+- url: http://192.168.1.3
+  username: !secret ihc_user
+  password: !secret ihc_pw
+  auto_setup: false
+  sensor: !include ihc_sensors.yaml

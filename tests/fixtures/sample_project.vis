@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE utcs_project [
+   <!ELEMENT utcs_project ANY>
+   <!ATTLIST utcs_project version_major CDATA #REQUIRED
+                  version_minor CDATA #REQUIRED
+                  last_unique_id CDATA #REQUIRED>
+]>
+<utcs_project version_major="4" version_minor="0" last_unique_id="_0xffff">
+   <modified year="2026" month="8" day="20" hour="23" minute="38"/>
+   <customer_info name="Test Person" address="Testvej 1" city="Testby"/>
+   <project_info description="Testprojekt"/>
+   <enum_definitions id="_0x3046" name="Enumerator definitioner">
+      <enum_definition id="_0xa147" name="Ur valg">
+         <enum_value id="_0xa248" name="Ur 1"/>
+         <enum_value id="_0xa348" name="Ur 2" index="1"/>
+      </enum_definition>
+   </enum_definitions>
+   <groups id="_0x2031" name="Lokaliteter">
+      <group id="_0x2132" name="Køkken">
+         <product_dataline id="_0x100" product_identifier="_0x2105" name="Tryk 4 tast" position="Ved døren">
+            <dataline_input id="_0x101" name="Tryk (øverst venstre)" address_dataline="_0x31">
+               <link_from_resource id="_0xa01" name="Følg Link" link="_0xb01"/>
+            </dataline_input>
+            <dataline_output id="_0x102" name="LED" type="led"/>
+         </product_dataline>
+         <product_dataline id="_0x110" product_identifier="_0x2106" name="Lampeudtag">
+            <dataline_output id="_0x111" name="On">
+               <link_from_resource id="_0xa02" name="Følg Link" link="_0xb02"/>
+            </dataline_output>
+         </product_dataline>
+         <group id="_0x2133" name="Tom undergruppe i køkken"/>
+         <functionblock id="_0x200" name="Fremkald scenarie">
+            <inputs id="_0x201" name="Input">
+               <resource_input id="_0x202" name="Tænd scenarie">
+                  <link_to_resource id="_0xb01" name="Følg Link" link="_0xa01"/>
+               </resource_input>
+            </inputs>
+            <outputs id="_0x203" name="Output">
+               <resource_scene id="_0x204" name="Tænd scenarie dag">
+                  <scene_relay id="_0x205" name="Scenarie link" link="_0xa02"/>
+               </resource_scene>
+            </outputs>
+            <settings id="_0x206" name="Indstillinger">
+               <resource_time id="_0x207" name="Nat starter" hour="22" minute="30" second="0"/>
+               <resource_timer id="_0x208" name="Timer" hour="0" minute="0" second="5" millisecond="250"/>
+               <resource_enum id="_0x209" name="Ur valg" typedef="_0xa147" inivalue="_0xa348"/>
+               <resource_temperature id="_0x20a" name="Rumtemperatur" inivalue="20.00" accessibility="read"/>
+            </settings>
+            <programs id="_0x20b">
+               <program_simple id="_0x20c" name="ON-Off Pulser">
+                  <actions>
+                     <action>
+                        <resource_time id="_0x20d" name="Tidspunkt" hour="1" minute="2" second="3"/>
+                     </action>
+                  </actions>
+               </program_simple>
+            </programs>
+         </functionblock>
+      </group>
+      <group id="_0x2232" name="Kun programmer">
+         <functionblock id="_0x300" name="Alarm"/>
+      </group>
+      <group id="_0x2432" name="Tom lokalitet"/>
+      <group id="_0x2532" name="Kun tomme undergrupper">
+         <group id="_0x2533" name="Tom undergruppe"/>
+      </group>
+      <group id="_0x2332" name="Kun installation">
+         <product_dataline id="_0x400" product_identifier="_0x1" name="Stikkontakt"/>
+      </group>
+   </groups>
+</utcs_project>

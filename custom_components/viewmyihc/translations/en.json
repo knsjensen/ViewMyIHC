@@ -1,0 +1,11 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "ViewMyIHC",
+        "description": "Adds a sidebar panel that shows your IHC project and controller settings. It uses the connection of the built-in IHC integration, so no credentials are needed here."
+      }
+    },
+    "abort": { "single_instance_allowed": "ViewMyIHC is already set up." }
+  }
+}

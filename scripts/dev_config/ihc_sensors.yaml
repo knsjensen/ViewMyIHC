@@ -1,0 +1,5 @@
+- id: 22337882
+  name: Min egen sensor
+  unit_of_measurement: "°C"
+- id: 22338138
+  name: Anden sensor
