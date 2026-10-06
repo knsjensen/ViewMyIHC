@@ -54,4 +54,4 @@ def test_home_assistant_detects_the_branding_folder():
 
 
 def test_svg_source_is_kept_for_future_edits():
-    assert (BRAND.parents[2] / "docs" / "brand" / "icon.svg").read_text(encoding="utf-8").startswith("<svg")
+    assert (BRAND.parents[2] / "assets" / "brand" / "icon.svg").read_text(encoding="utf-8").startswith("<svg")
