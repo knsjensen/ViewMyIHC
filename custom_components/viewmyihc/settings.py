@@ -19,7 +19,12 @@ _LOGGER = logging.getLogger(__name__)
 
 STORAGE_KEY = "viewmyihc.settings"
 STORAGE_VERSION = 1
-DEFAULTS: dict[str, Any] = {"ihc_timeout": False, "ihc_timeout_seconds": connection_guard.DEFAULT_SECONDS}
+DEFAULTS: dict[str, Any] = {
+    "ihc_timeout": False,
+    "ihc_timeout_seconds": connection_guard.DEFAULT_SECONDS,
+    # controllers on which a test upload of the SceneDesign project succeeded (editing it is only allowed then)
+    "scene_upload_verified": [],
+}
 
 
 class Settings:

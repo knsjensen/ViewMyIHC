@@ -97,12 +97,13 @@ def test_parse_reads_messages_and_controls():
     result = sp.parse(icz())
     assert (result["name"], result["scenes"]) == ("Hus", 2)
     email, sms = result["notifications"]
-    assert email == {"channel": "email", "resource": 0x202, "event": "inactive_to_active_event", "recipients": ["a@x.dk", "b@y.dk"],
+    assert email == {"key": "notifications:0", "channel": "email", "resource": 0x202, "event": "inactive_to_active_event", "recipients": ["a@x.dk", "b@y.dk"],
                      "slots": [], "subject": "Alarm", "body": "Døren er åbnet"}
     assert (sms["channel"], sms["resource"], sms["event"], sms["slots"]) == ("sms", 0x203, "active_to_inactive_event", [1, 5])
     mail_control, sms_control = result["controls"]
-    assert mail_control == {"channel": "email", "resource": 0x204, "action": "off_to_on_action", "authorization": "three_way",
-                            "trigger": "VARME TIL", "senders": [], "confirmation_address": "me@x.dk", "confirmation": "Tændt"}
+    assert mail_control == {"key": "emailcontrols:0", "channel": "email", "resource": 0x204, "action": "off_to_on_action", "authorization": "three_way",
+                            "trigger": "VARME TIL", "senders": [], "confirmation_address": "me@x.dk", "confirmation": "Tændt",
+                            "confirmation_message": "Bekræft"}
     assert (sms_control["action"], sms_control["authorization"], sms_control["senders"]) == ("pulse_action", "sender_based", [2, 30])
 
 

@@ -52,6 +52,8 @@ vlayout = importlib.import_module("vmi.dataline_layout")
 vreport = importlib.import_module("vmi.report_builder")
 vwiring = importlib.import_module("vmi.wiring_map")
 vscene = importlib.import_module("vmi.scene_project")
+vscene_edit = importlib.import_module("vmi.scene_editor")
+import zlib
 import io
 import zipfile
 import base64
@@ -343,30 +345,50 @@ def handle(msg: dict):
                 SETTINGS[key] = msg[key]
         return {"settings": dict(SETTINGS), "active": {"DEV-0001": SETTINGS["ihc_timeout_seconds"] if SETTINGS["ihc_timeout"] else None},
                 "limits": {"min": 15, "max": 300}}
-    if kind == "scene/messages":
-        rids = [f"{n.id:x}" for n in PROJECT.nodes.values() if n.is_resource and not n.hidden][:4] + ["0"] * 4
-        icw = f"""<icwproject version="2" name="Demo"><scenes><scene name="Stue"/></scenes>
-          <notifications><notification event="text.inactive_to_active_event"><resource rid="{rids[0]}"/>
-            <message recipient="anna@example.org;bo@example.org"><subject>Alarm</subject><body>Døren er åbnet</body></message></notification></notifications>
-          <smsnotifications><smsnotification event="text.active_to_inactive_event"><resource rid="{rids[1]}"/>
-            <message recipient="110000000000000000000000000000"><subject/><body>Varmen er slukket</body></message></smsnotification></smsnotifications>
-          <emailcontrols><emailcontrol><resource rid="{rids[2]}"/><action type="text.emailcontrol.off_to_on_action"/>
-            <executionconfirmation><body>Varmen er tændt</body></executionconfirmation>
-            <authorization type="text.emailcontrol.authorization.three_way"><triggersubject>VARME TIL</triggersubject>
-            <confirmationaddress>anna@example.org</confirmationaddress></authorization></emailcontrol></emailcontrols>
-          <smscontrols><smscontrol><resource rid="{rids[3]}"/><action type="text.emailcontrol.pulse_action"/>
-            <authorization type="text.emailcontrol.authorization.sender_based"><triggersubject>PORT</triggersubject>
-            <acceptsenderaddress>100000000000000000000000000000</acceptsenderaddress></authorization></smscontrol></smscontrols></icwproject>"""
-        buffer = io.BytesIO()
-        with zipfile.ZipFile(buffer, "w") as archive:
-            archive.writestr("project.icw", icw.encode("utf-8"))
-        parsed = vscene.parse(buffer.getvalue())
+    if kind in ("scene/messages", "scene/test", "scene/save"):
+        if SCENE["icz"] is None:
+            rids = [f"{n.id:x}" for n in PROJECT.nodes.values() if n.is_resource and not n.hidden][:4] + ["0"] * 4
+            icw = f"""<?xml version="1.0" encoding="UTF-8"?>
+<icwproject version="2" name="Demo"><scenes><scene name="Stue"/></scenes>
+  <notifications><notification event="text.inactive_to_active_event"><resource rid="{rids[0]}"/>
+    <message recipient="anna@example.org;bo@example.org" sender="Unknown"><subject>Alarm</subject><body>Døren er åbnet</body></message></notification></notifications>
+  <smsnotifications><smsnotification event="text.active_to_inactive_event"><resource rid="{rids[1]}"/>
+    <message recipient="110000000000000000000000000000" sender="Unknown"><subject/><body>Varmen er slukket</body></message></smsnotification></smsnotifications>
+  <emailcontrols><emailcontrol><resource rid="{rids[2]}"/><action type="text.emailcontrol.off_to_on_action"/>
+    <executionconfirmation><body>Varmen er tændt</body></executionconfirmation>
+    <authorization type="text.emailcontrol.authorization.three_way"><triggersubject>VARME TIL</triggersubject>
+    <confirmationaddress>anna@example.org</confirmationaddress></authorization></emailcontrol></emailcontrols>
+  <smscontrols><smscontrol><resource rid="{rids[3]}"/><action type="text.emailcontrol.pulse_action"/>
+    <authorization type="text.emailcontrol.authorization.sender_based"><triggersubject>PORT</triggersubject>
+    <acceptsenderaddress>100000000000000000000000000000</acceptsenderaddress></authorization></smscontrol></smscontrols></icwproject>"""
+            buffer = io.BytesIO()
+            with zipfile.ZipFile(buffer, "w") as archive:
+                archive.writestr("project.icw", icw.encode("utf-8"))
+            SCENE["icz"] = buffer.getvalue()
+        if kind != "scene/messages" and msg.get("auth") != "dev":
+            raise DevError("wrong_password", "Wrong password")
+        if kind == "scene/test":
+            time.sleep(DEV["delay"])
+            SCENE["verified"] = True
+            return {"verified": True}
+        if kind == "scene/save":
+            if not SCENE["verified"]:
+                raise DevError("restore_failed", "Run the test upload first")
+            if msg["crc"] != str(zlib.crc32(SCENE["icz"])):
+                raise DevError("restore_failed", "The scene project was changed on the controller meanwhile")
+            try:
+                SCENE["icz"] = vscene_edit.apply(SCENE["icz"], msg["notifications"], msg["controls"])
+            except vscene_edit.SceneEditError as err:
+                raise DevError("invalid_value", str(err)) from err
+            time.sleep(DEV["delay"])
+        parsed = vscene.parse(SCENE["icz"])
         book = {1: {"number": "+45 11 22 33 44", "label": "Anna"}, 2: {"number": "+45 55 66 77 88", "label": "Bo"}}
         def res(rid):
             node = PROJECT.nodes.get(rid)
             return {"id": rid, "name": node.name if node else None, "label": PROJECT.label(rid) if node else None}
         slots = lambda ns: [{"slot": n, **book.get(n, {"number": "", "label": ""})} for n in ns]  # noqa: E731
         return {**{k: v for k, v in parsed.items() if k not in ("notifications", "controls")},
+                "crc": str(zlib.crc32(SCENE["icz"])), "verified": SCENE["verified"], "phonebook": {str(k): v for k, v in book.items()},
                 "notifications": [{**n, "resource": res(n["resource"]), "slots": slots(n["slots"])} for n in parsed["notifications"]],
                 "controls": [{**c, "resource": res(c["resource"]), "senders": slots(c["senders"]) if c["channel"] == "sms" else c["senders"]}
                              for c in parsed["controls"]]}
@@ -454,6 +476,7 @@ class DevError(Exception):
 
 
 DL = {"saved": None}
+SCENE = {"icz": None, "verified": False}
 SETTINGS = {"ihc_timeout": False, "ihc_timeout_seconds": 30}
 MONITOR = {"started": None, "events": [], "seq": 0, "next": time.time()}
 BACKUPS: list = []

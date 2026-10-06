@@ -15,7 +15,7 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 
-from . import controller_info, project_backup, project_restore, scene_project
+from . import controller_info, project_backup, project_restore, scene_editor, scene_project
 from .dataline_cache import DatalineCache
 from .dataline_layout import layout
 from .event_monitor import EventMonitor
@@ -39,7 +39,7 @@ def backup_root(hass: HomeAssistant) -> Path:
 @callback
 def async_register(hass: HomeAssistant) -> None:
     for handler in (
-        ws_backup_restore, ws_scene_messages, ws_map, ws_map_images, ws_report, ws_log, ws_log_clear, ws_messages, ws_dataline, ws_coverage, ws_press, ws_backups, ws_backup_diff, ws_backup_download,
+        ws_backup_restore, ws_scene_messages, ws_scene_test, ws_scene_save, ws_map, ws_map_images, ws_report, ws_log, ws_log_clear, ws_messages, ws_dataline, ws_coverage, ws_press, ws_backups, ws_backup_diff, ws_backup_download,
         ws_monitor_start, ws_monitor_events, ws_monitor_clear,
     ):
         websocket_api.async_register_command(hass, handler)
@@ -79,6 +79,11 @@ async def ws_scene_messages(hass: HomeAssistant, connection: websocket_api.Activ
     except (BridgeError, scene_project.SceneProjectError) as err:
         _fail(connection, msg["id"], err)
         return
+    connection.send_result(msg["id"], _scene_view(hass, serial, result))
+
+
+def _scene_view(hass: HomeAssistant, serial: str, result: dict[str, Any]) -> dict[str, Any]:
+    """The parsed lists for the panel: resource names, SMS slots with numbers, the phone book and whether it may be edited."""
     entry = _store(hass)["projects"].get(serial)
     project: Project | None = entry["project"] if entry else None
 
@@ -94,7 +99,100 @@ async def ws_scene_messages(hass: HomeAssistant, connection: websocket_api.Activ
     out["notifications"] = [{**n, "resource": resource(n["resource"]), "slots": slots(n["slots"])} for n in result["notifications"]]
     out["controls"] = [{**c, "resource": resource(c["resource"]), "senders": slots(c["senders"]) if c["channel"] == "sms" else c["senders"]}
                        for c in result["controls"]]
-    connection.send_result(msg["id"], out)
+    out["phonebook"] = {str(slot): info for slot, info in (project.sms_numbers if project is not None else {}).items()}
+    settings = _store(hass).get("settings")
+    out["verified"] = bool(settings and serial in settings.values.get("scene_upload_verified", []))
+    return out
+
+
+def _scene_lock(hass: HomeAssistant) -> asyncio.Lock:
+    return _store(hass).setdefault("restore_lock", asyncio.Lock())  # one write to the controller at a time
+
+
+@_command("scene/test", {vol.Required("auth"): str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_scene_test(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Send the unchanged scene project back and check it; editing is allowed on this controller only after this."""
+    lock = _scene_lock(hass)
+    if lock.locked():
+        connection.send_error(msg["id"], "busy", "Another change of the controller is running")
+        return
+    async with lock:
+        try:
+            serial, controller = _controller(hass, msg.get("controller"))
+            _check_password(serial, controller, msg["auth"])
+            info = await hass.async_add_executor_job(scene_project.project_info, controller)
+            icz = await hass.async_add_executor_job(scene_project.download, controller, info)
+            await hass.async_add_executor_job(project_backup.save_scene, backup_root(hass), serial, icz, {"note": "before test upload"})
+            await hass.async_add_executor_job(project_restore.restore_scene, controller, icz)
+        except WrongPassword as err:
+            connection.send_error(msg["id"], "wrong_password", str(err))
+            return
+        except (project_restore.RestoreError, scene_project.SceneProjectError) as err:
+            _LOGGER.warning("ViewMyIHC: test upload of the scene project failed: %s", err)
+            connection.send_error(msg["id"], "restore_failed", str(err))
+            return
+        except BridgeError as err:
+            _fail(connection, msg["id"], err)
+            return
+        settings = _store(hass).get("settings")
+        if settings is not None:
+            verified = sorted({*settings.values.get("scene_upload_verified", []), serial})
+            await settings.async_update({"scene_upload_verified": verified})
+    _LOGGER.warning("ViewMyIHC: test upload of the scene project succeeded; editing it is now allowed")
+    connection.send_result(msg["id"], {"verified": True})
+
+
+@_command("scene/save", {vol.Required("crc"): str, vol.Required("notifications"): [dict], vol.Required("controls"): [dict],
+                         vol.Required("auth"): str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_scene_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Write new message/control lists to the SceneDesign project; a failed upload puts the previous one back."""
+    lock = _scene_lock(hass)
+    if lock.locked():
+        connection.send_error(msg["id"], "busy", "Another change of the controller is running")
+        return
+    async with lock:
+        try:
+            serial, controller = _controller(hass, msg.get("controller"))
+            _check_password(serial, controller, msg["auth"])
+            settings = _store(hass).get("settings")
+            if not settings or serial not in settings.values.get("scene_upload_verified", []):
+                raise project_restore.RestoreError("Run the test upload first")
+            info = await hass.async_add_executor_job(scene_project.project_info, controller)
+            if str(info.get("crc") or "") != msg["crc"]:
+                raise project_restore.RestoreError("The scene project was changed on the controller meanwhile - reload and try again")
+            old = await hass.async_add_executor_job(scene_project.download, controller, info)
+            new = scene_editor.apply(old, msg["notifications"], msg["controls"])
+            if new != old:
+                await hass.async_add_executor_job(project_backup.save_scene, backup_root(hass), serial, old, {"note": "before edit"})
+                try:
+                    await hass.async_add_executor_job(project_restore.restore_scene, controller, new)
+                except (project_restore.RestoreError, BridgeError) as err:
+                    try:  # put the previous project back
+                        await hass.async_add_executor_job(project_restore.restore_scene, controller, old)
+                    except (project_restore.RestoreError, BridgeError):
+                        _LOGGER.exception("ViewMyIHC: could not put the previous scene project back")
+                        raise project_restore.RestoreError(
+                            f"{err} - the previous version could not be put back automatically; restore it under Versions") from err
+                    raise project_restore.RestoreError(f"{err} - the previous version was put back") from err
+            result = await _scene(hass, serial, controller, True)
+        except WrongPassword as err:
+            connection.send_error(msg["id"], "wrong_password", str(err))
+            return
+        except scene_editor.SceneEditError as err:
+            connection.send_error(msg["id"], "invalid_value", str(err))
+            return
+        except (project_restore.RestoreError, scene_project.SceneProjectError) as err:
+            connection.send_error(msg["id"], "restore_failed", str(err))
+            return
+        except BridgeError as err:
+            _fail(connection, msg["id"], err)
+            return
+    _LOGGER.warning("ViewMyIHC: saved changed messages/controls in the SceneDesign project")
+    connection.send_result(msg["id"], _scene_view(hass, serial, result))
 
 
 @_command("map")

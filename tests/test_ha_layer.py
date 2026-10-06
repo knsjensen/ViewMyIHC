@@ -750,7 +750,7 @@ async def test_the_timeout_setting_is_stored_applied_and_removed(hass):
     assert on["active"] == {SERIAL: 45} and connection_guard.active_timeout(controller) == 45
     reloaded = settings.Settings(hass)
     await reloaded.async_load()
-    assert reloaded.values == {"ihc_timeout": True, "ihc_timeout_seconds": 45}
+    assert reloaded.values == {"ihc_timeout": True, "ihc_timeout_seconds": 45, "scene_upload_verified": []}
     off = (await call(hass, settings.ws_settings_set, {"type": "viewmyihc/settings/set", "ihc_timeout": False})).result
     assert off["active"] == {SERIAL: None}
     with pytest.raises(Exception):
@@ -828,4 +828,59 @@ async def test_restoring_a_version_needs_the_password_and_keeps_the_current_one_
     assert controller.order[-1] == "waitForControllerStateChange" and "exitProjectChangeMode" in controller.order
     unknown = await call(hass, tools_api.ws_backup_restore, {**msg, "name": "../../x.vis.gz", "auth": "hemmeligt"})
     assert unknown.error[0] == "restore_failed"
+    admin_api._failures.clear()
+
+
+async def test_editing_the_scene_project_needs_a_test_upload_first_and_a_fresh_checksum(hass):
+    import zlib
+    import xml.etree.ElementTree as ET
+
+    from custom_components.viewmyihc import settings
+    from test_scene_project import SceneController, icz
+
+    admin_api._failures.clear()
+    hass.data[DOMAIN]["settings"] = settings.Settings(hass)
+    await hass.data[DOMAIN]["settings"].async_load()
+    controller = SceneController(icz())
+    controller.crc = str(zlib.crc32(controller.data))
+    received: list[bytes] = []
+    conn = controller.client.connection
+    serve = conn.soap_action
+
+    def soap_action(service, action, body=""):
+        if action == "storeSceneProjectSegment":  # the controller keeps what it is sent
+            leaves = {e.tag.rsplit("}", 1)[-1]: e.text for e in ET.fromstring(f"<r>{body}</r>").iter()}
+            received.append(base64.b64decode(leaves["data"]))
+            if leaves["storeSceneProjectSegment3"] == "true":
+                controller.data = b"".join(received)
+                received.clear()
+                controller.crc = str(zlib.crc32(controller.data))
+            return ET.fromstring(
+                '<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"><SOAP-ENV:Body>'
+                '<ns1:storeSceneProjectSegment4 xmlns:ns1="utcs">true</ns1:storeSceneProjectSegment4></SOAP-ENV:Body></SOAP-ENV:Envelope>')
+        return serve(service, action, body)
+
+    conn.soap_action = soap_action
+    hass.data["ihc"][SERIAL]["controller"] = controller
+    view = (await call(hass, tools_api.ws_scene_messages, {"type": "viewmyihc/scene/messages"})).result
+    assert view["verified"] is False and view["crc"] == controller.crc
+    notes, controls = view["notifications"], view["controls"]
+    plain = lambda items: [{**i, "resource": i["resource"]["id"], **({"slots": [s["slot"] for s in i["slots"]]} if "slots" in i else {}),  # noqa: E731
+                            **({"senders": [s["slot"] for s in i["senders"]]} if i.get("channel") == "sms" and "senders" in i else {})} for i in items]
+    changed = plain(notes)
+    changed[0]["body"] = "Hoveddøren er åbnet"
+    save = {"type": "viewmyihc/scene/save", "notifications": changed, "controls": plain(controls), "auth": "hemmeligt"}
+
+    first = await call(hass, tools_api.ws_scene_save, {**save, "crc": view["crc"]})
+    assert first.error[0] == "restore_failed" and "test upload" in first.error[1]
+    tested = await call(hass, tools_api.ws_scene_test, {"type": "viewmyihc/scene/test", "auth": "hemmeligt"})
+    assert tested.result == {"verified": True}
+    stale = await call(hass, tools_api.ws_scene_save, {**save, "crc": "0"})
+    assert stale.error[0] == "restore_failed" and "meanwhile" in stale.error[1]
+    saved = await call(hass, tools_api.ws_scene_save, {**save, "crc": controller.crc})
+    assert saved.error is None, saved.error
+    assert saved.result["notifications"][0]["body"] == "Hoveddøren er åbnet" and saved.result["verified"] is True
+    kept = (await call(hass, tools_api.ws_backups, {"type": "viewmyihc/backups", "kind": "scene"})).result["backups"]
+    # the original (saved the first time it was read; identical files are kept once) and the edited version
+    assert len(kept) == 2 and kept[1]["notifications"] == kept[0]["notifications"] == 2
     admin_api._failures.clear()

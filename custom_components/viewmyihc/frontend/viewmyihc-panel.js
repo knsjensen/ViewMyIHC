@@ -241,12 +241,18 @@ const I18N_EXTRA = {
     map: "Kort", mapSearch: "Find produkt …", mapZoomIn: "Zoom ind", mapZoomOut: "Zoom ud", mapHome: "Controlleren og modulerne",
     mapAll: "Hele anlægget", mapAirlink: "Trådløst (Airlink)", mapNoModule: "intet modul angivet", mapIn: "Ind", mapOut: "Ud",
     mapLines: "linjer", mapHits: "{n} fundet – Enter for næste", mapUnwired: "{n} produkter uden datalinjeadresse (fx temperaturfølere) vises ikke.",
+    scChannel: "Kanal", scSubject: "Emne", scSmsText: "SMS-tekst (højst 60 tegn)", scPickRes: "Søg ressource (navn eller id)", scUnknownRes: "Ukendt ressource",
+    scAllSlots: "Vis alle 30 numre", scAddNote: "Tilføj besked", scAddControl: "Tilføj kommando", scConfirmText: "Bekræftelsestekst",
+    scSaveNote: "Ændringerne sendes til controlleren. Det nuværende scene-projekt gemmes først under Versioner, og det sendte kontrolleres bagefter – går noget galt, sendes det gamle tilbage.",
+    scTestButton: "Afprøv upload", scTestLead: "Før beskeder kan rettes herfra, sendes det uændrede scene-projekt én gang til controlleren og hentes tilbage for at kontrollere, at det kommer ud præcis som det blev sendt. Det nuværende gemmes først under Versioner.",
+    scTestDone: "Prøven lykkedes – du kan nu rette beskeder og kommandoer", scSaved: "Ændringerne er gemt på controlleren og kontrolleret",
+    scEditReady: "Tryk Rediger for at oprette, rette eller slette beskeder og kommandoer.",
     scTitle: "Opsætning af beskeder og styring (IHC SceneDesign)",
     scLead: "Hvem der får besked, når en ressource ændrer sig, og hvem der kan styre controlleren med e-mail eller SMS. Det er sat op i IHC SceneDesign og ligger i dens projekt på controlleren.",
     scNotifications: "Beskeder ved hændelser", scControls: "Styring via e-mail/SMS", scResource: "Ressource", scWhen: "Når", scTo: "Modtagere",
     scMessage: "Besked", scDoes: "Gør", scAuth: "Godkendelse", scFrom: "Tilladte afsendere", scReply: "Svar", scConfirmTo: "Bekræftes af",
     scAnyone: "Alle, der kender kommandoen", scSlot: "Nummer {n}",
-    scEditNote: "Rettes i IHC SceneDesign. Redigering herfra kommer, når upload af scene-projektet er afprøvet sammen med dig.",
+    scEditNote: "For at rette beskeder herfra skal en prøve-upload først lykkes på denne controller (Afprøv upload).",
     scEvent: { inactive_to_active_event: "Går til", active_to_inactive_event: "Går fra" },
     scAction: { off_to_on_action: "Tænder", on_to_off_action: "Slukker", pulse_action: "Pulser" },
     scAuthType: { direct_control: "Direkte", sender_based: "Kun kendte afsendere", three_way: "3-vejs bekræftelse" },
@@ -356,12 +362,18 @@ const I18N_EXTRA = {
     map: "Map", mapSearch: "Find product …", mapZoomIn: "Zoom in", mapZoomOut: "Zoom out", mapHome: "Controller and modules",
     mapAll: "Whole installation", mapAirlink: "Wireless (Airlink)", mapNoModule: "no module entered", mapIn: "In", mapOut: "Out",
     mapLines: "lines", mapHits: "{n} found – Enter for next", mapUnwired: "{n} products without a dataline address (e.g. temperature sensors) are not shown.",
+    scChannel: "Channel", scSubject: "Subject", scSmsText: "SMS text (at most 60 characters)", scPickRes: "Search a resource (name or id)", scUnknownRes: "Unknown resource",
+    scAllSlots: "Show all 30 numbers", scAddNote: "Add message", scAddControl: "Add command", scConfirmText: "Confirmation text",
+    scSaveNote: "The changes are sent to the controller. The current scene project is kept under Versions first, and what was sent is checked afterwards – if something goes wrong the old one is sent back.",
+    scTestButton: "Test upload", scTestLead: "Before messages can be changed from here, the unchanged scene project is sent to the controller once and fetched back to check that it comes out exactly as it was sent. The current one is kept under Versions first.",
+    scTestDone: "The test succeeded – you can now change messages and commands", scSaved: "The changes were saved on the controller and checked",
+    scEditReady: "Press Edit to add, change or remove messages and commands.",
     scTitle: "Messages and control setup (IHC SceneDesign)",
     scLead: "Who is told when a resource changes, and who may control the controller by e-mail or SMS. It is set up in IHC SceneDesign and kept in its project on the controller.",
     scNotifications: "Messages on events", scControls: "Control by e-mail/SMS", scResource: "Resource", scWhen: "When", scTo: "Recipients",
     scMessage: "Message", scDoes: "Does", scAuth: "Authorisation", scFrom: "Allowed senders", scReply: "Reply", scConfirmTo: "Confirmed by",
     scAnyone: "Anyone who knows the command", scSlot: "Number {n}",
-    scEditNote: "Changed in IHC SceneDesign. Editing from here comes once uploading the scene project has been tested together with you.",
+    scEditNote: "To change messages from here, a test upload must first succeed on this controller (Test upload).",
     scEvent: { inactive_to_active_event: "Turns on", active_to_inactive_event: "Turns off" },
     scAction: { off_to_on_action: "Switches on", on_to_off_action: "Switches off", pulse_action: "Pulses" },
     scAuthType: { direct_control: "Direct", sender_based: "Known senders only", three_way: "3-way confirmation" },
@@ -510,7 +522,7 @@ const CAT_ICON = {
 };
 
 // Must equal "version" in manifest.json / VERSION in const.py (a test checks this)
-const PANEL_VERSION = "0.13.0";
+const PANEL_VERSION = "0.14.0";
 const POLL_MS = 3000;
 const HOLD_INTENT_MS = 150;  // a finger must rest this long on "hold to change" before it counts as a press
 const HOLD_MOVE_PX = 8;      // moving more than this before then is a scroll
@@ -1099,6 +1111,7 @@ class ViewMyIHCPanel extends HTMLElement {
     for (const ev of ["input", "change"]) this.shadowRoot.addEventListener(ev, (e) => {
       if (e.target.dataset?.af) { this._adminInput(e.target); if (/^password2?$/.test(e.target.dataset.af)) this._pwCheck(); }
       else if (e.target.dataset && "auth" in e.target.dataset && this._adminEdit) this._adminEdit.auth = e.target.value;
+      else if (e.target.dataset?.sf && (ev === "change" || e.target.type !== "checkbox")) this._sceneEditInput(e.target);
     });
     this.shadowRoot.addEventListener("keyup", (e) => {
       if ((e.key === " " || e.key === "Enter") && e.target.closest?.("[data-hold]")) { e.preventDefault(); this._holdEnd(); }
@@ -1972,13 +1985,159 @@ class ViewMyIHCPanel extends HTMLElement {
     const el = this.shadowRoot.querySelector(".admin-scene"); if (el) el.innerHTML = this._sceneHtml();
   }
 
+  // ---- editing SceneDesign's messages and controls (after a successful test upload; password for every save)
+
+  async _sceneEditStart() {
+    const d = this._scene?.data; if (!d) return;
+    if (!this._cov) { try { this._cov = (await this._ws({ type: "viewmyihc/coverage" })).resources; } catch (_e) { this._cov = []; } }
+    const notes = d.notifications.map((n) => ({ key: n.key, channel: n.channel, resource: n.resource?.id ?? "", event: n.event,
+      recipients: (n.recipients || []).join("; "), slots: (n.slots || []).map((s) => s.slot), subject: n.subject || "", body: n.body || "" }));
+    const controls = d.controls.map((c) => ({ key: c.key, channel: c.channel, resource: c.resource?.id ?? "", action: c.action,
+      authorization: c.authorization, trigger: c.trigger || "", confirmation: c.confirmation || "",
+      confirmation_address: c.confirmation_address || "", confirmation_message: c.confirmation_message || "",
+      sender: c.channel === "email" ? (c.senders || [])[0] || "" : "", slots: c.channel === "sms" ? (c.senders || []).map((s) => s.slot) : [] }));
+    this._sceneEdit = { notes, controls, error: "", busy: false, allSlots: false };
+    this._paintScene();
+  }
+
+  _sceneEditInput(el) {
+    const e = this._sceneEdit; if (!e) return;
+    const [list, index, field] = el.dataset.sf.split(".");
+    const item = (list === "n" ? e.notes : e.controls)[Number(index)]; if (!item) return;
+    if (field === "slot") {
+      const slot = Number(el.value);
+      item.slots = el.checked ? [...new Set([...item.slots, slot])] : item.slots.filter((s) => s !== slot);
+      return;
+    }
+    item[field] = el.value;
+    if (field === "channel" || field === "authorization") {  // other fields apply now: redraw this card
+      if (field === "channel" && list === "c" && item.channel === "sms" && item.authorization === "three_way") item.authorization = "direct_control";
+      this._paintScene();
+    }
+    if (field === "resource") {
+      const hint = el.parentElement.querySelector(".reslabel");
+      if (hint) hint.textContent = this._resLabel(item.resource);
+    }
+  }
+
+  _resLabel(id) {
+    const r = (this._cov || []).find((x) => String(x.id) === String(id));
+    return r ? r.label : id ? this.t("scUnknownRes") : "";
+  }
+
+  _slotPicker(list, index, chosen) {
+    const book = this._scene?.data?.phonebook || {};
+    const all = this._sceneEdit.allSlots;
+    const slots = Array.from({ length: 30 }, (_, i) => i + 1).filter((n) => all || book[n]?.number || chosen.includes(n));
+    return `<div class="slots">${slots.map((n) => `<label class="slotpick"><input type="checkbox" data-sf="${list}.${index}.slot" value="${n}" ${chosen.includes(n) ? "checked" : ""}/>
+        <span>${esc(book[n]?.label || this.t("scSlot").replace("{n}", n))}${book[n]?.number ? ` <small>${esc(book[n].number)}</small>` : ""}</span></label>`).join("")}
+      ${all ? "" : `<button class="btn-text small" data-act="scene-allslots">${esc(this.t("scAllSlots"))}</button>`}</div>`;
+  }
+
+  _sceneEditHtml() {
+    const e = this._sceneEdit;
+    const sel = (path, value, options) => `<select data-sf="${path}">${options.map(([v, label]) => `<option value="${v}" ${v === value ? "selected" : ""}>${esc(label)}</option>`).join("")}</select>`;
+    const field = (label, inner, wide = false) => `<label class="field ${wide ? "wide" : ""}"><span class="lbl2">${esc(label)}</span>${inner}</label>`;
+    const text = (path, value, max, ph = "") => `<input data-sf="${path}" value="${esc(value)}" ${max ? `maxlength="${max}"` : ""} placeholder="${esc(ph)}"/>`;
+    const res = (path, value) => `<span class="resfield"><input data-sf="${path}" list="vmi-res" inputmode="numeric" value="${esc(value)}" placeholder="${esc(this.t("scPickRes"))}"/>
+      <small class="reslabel">${esc(this._resLabel(value))}</small></span>`;
+    const chan = (path, value) => sel(path, value, [["email", "E-mail"], ["sms", "SMS"]]);
+    const notes = e.notes.map((n, i) => `<div class="scedit"><div class="scgrid">
+        ${field(this.t("scChannel"), chan(`n.${i}.channel`, n.channel))}
+        ${field(this.t("scWhen"), sel(`n.${i}.event`, n.event, [["inactive_to_active_event", this.tk("scEvent", "inactive_to_active_event")], ["active_to_inactive_event", this.tk("scEvent", "active_to_inactive_event")]]))}
+        ${field(this.t("scResource"), res(`n.${i}.resource`, n.resource), true)}
+        ${n.channel === "sms" ? field(this.t("scTo"), this._slotPicker("n", i, n.slots), true)
+          : field(this.t("scTo"), text(`n.${i}.recipients`, n.recipients, 0, "anna@example.org; bo@example.org"), true) + field(this.t("scSubject"), text(`n.${i}.subject`, n.subject, 200), true)}
+        ${field(n.channel === "sms" ? this.t("scSmsText") : this.t("scMessage"), n.channel === "sms" ? text(`n.${i}.body`, n.body, 60) : `<textarea rows="2" data-sf="n.${i}.body">${esc(n.body)}</textarea>`, true)}
+      </div><button class="icon-btn danger" data-act="scene-del" data-list="n" data-i="${i}" title="${esc(this.t("remove"))}"><ha-icon icon="mdi:delete-outline"></ha-icon></button></div>`).join("");
+    const ctls = e.controls.map((c, i) => {
+      const auths = [["direct_control", this.tk("scAuthType", "direct_control")], ["sender_based", this.tk("scAuthType", "sender_based")],
+        ...(c.channel === "email" ? [["three_way", this.tk("scAuthType", "three_way")]] : [])];
+      return `<div class="scedit"><div class="scgrid">
+        ${field(this.t("scChannel"), chan(`c.${i}.channel`, c.channel))}
+        ${field(this.t("colCommand"), text(`c.${i}.trigger`, c.trigger, 60, "VARME TIL"))}
+        ${field(this.t("scDoes"), sel(`c.${i}.action`, c.action, [["off_to_on_action", this.tk("scAction", "off_to_on_action")], ["on_to_off_action", this.tk("scAction", "on_to_off_action")], ["pulse_action", this.tk("scAction", "pulse_action")]]))}
+        ${field(this.t("scResource"), res(`c.${i}.resource`, c.resource), true)}
+        ${field(this.t("scAuth"), sel(`c.${i}.authorization`, c.authorization, auths))}
+        ${c.authorization === "sender_based" ? (c.channel === "sms" ? field(this.t("scFrom"), this._slotPicker("c", i, c.slots), true) : field(this.t("scFrom"), text(`c.${i}.sender`, c.sender, 200, "anna@example.org"), true)) : ""}
+        ${c.authorization === "three_way" ? field(this.t("scConfirmTo"), text(`c.${i}.confirmation_address`, c.confirmation_address, 200, "anna@example.org"), true)
+          + field(this.t("scConfirmText"), text(`c.${i}.confirmation_message`, c.confirmation_message, 200), true) : ""}
+        ${field(this.t("scReply"), text(`c.${i}.confirmation`, c.confirmation, c.channel === "sms" ? 60 : 200), true)}
+      </div><button class="icon-btn danger" data-act="scene-del" data-list="c" data-i="${i}" title="${esc(this.t("remove"))}"><ha-icon icon="mdi:delete-outline"></ha-icon></button></div>`;
+    }).join("");
+    return `<datalist id="vmi-res">${(this._cov || []).map((r) => `<option value="${r.id}">${esc(r.label)}</option>`).join("")}</datalist>
+      <h4>${esc(this.t("scNotifications"))}</h4>${notes || `<p class="dim">${esc(this.t("msgNone"))}</p>`}
+      <button class="btn-text small" data-act="scene-add" data-list="n"><ha-icon icon="mdi:plus"></ha-icon>${esc(this.t("scAddNote"))}</button>
+      <h4>${esc(this.t("scControls"))}</h4>${ctls || `<p class="dim">${esc(this.t("msgNone"))}</p>`}
+      <button class="btn-text small" data-act="scene-add" data-list="c"><ha-icon icon="mdi:plus"></ha-icon>${esc(this.t("scAddControl"))}</button>
+      <div class="clearbox"><p>${esc(this.t("scSaveNote"))}</p>
+        <label class="field auth"><span class="lbl2"><ha-icon icon="mdi:shield-key-outline"></ha-icon>${esc(this.t("adminAuth").replace("{user}", this._haUser || "ihc"))}</span>
+          <input type="password" autocomplete="current-password" data-sceneauth value=""/></label>
+        ${e.error ? `<p class="ferr box">${esc(e.error)}</p>` : ""}
+        ${e.busy ? `<p class="rsbusy"><span class="spinner small"></span>${esc(this.t("rsSceneBusy"))}</p>` : `<div class="formfoot"><span class="grow"></span>
+          <button class="btn-text" data-act="scene-cancel">${esc(this.t("cancel"))}</button>
+          <button class="btn small" data-act="scene-save">${esc(this.t("save"))}</button></div>`}</div>`;
+  }
+
+  _sceneTestHtml() {
+    const t = this._sceneTest;
+    return `<div class="clearbox"><p>${esc(this.t("scTestLead"))}</p>
+      <label class="field auth"><span class="lbl2"><ha-icon icon="mdi:shield-key-outline"></ha-icon>${esc(this.t("adminAuth").replace("{user}", this._haUser || "ihc"))}</span>
+        <input type="password" autocomplete="current-password" data-sceneauth value=""/></label>
+      ${t?.error ? `<p class="ferr box">${esc(t.error)}</p>` : ""}
+      ${t?.busy ? `<p class="rsbusy"><span class="spinner small"></span>${esc(this.t("rsSceneBusy"))}</p>` : `<div class="formfoot"><span class="grow"></span>
+        <button class="btn-text" data-act="scene-test-cancel">${esc(this.t("cancel"))}</button>
+        <button class="btn small" data-act="scene-test-go">${esc(this.t("scTestButton"))}</button></div>`}</div>`;
+  }
+
+  _sceneAuth() { return this.shadowRoot.querySelector("[data-sceneauth]")?.value || ""; }
+
+  _authError(err) {
+    return err && err.code === "wrong_password"
+      ? (/many/i.test(err.message || "") ? this.t("adminAuthLocked") : this.t("adminAuthWrong")) : this._errText(err);
+  }
+
+  async _sceneTestGo() {
+    const t = this._sceneTest || (this._sceneTest = {}); const auth = this._sceneAuth();
+    if (!auth) { t.error = this.t("adminAuthMissing"); this._paintScene(); return; }
+    t.busy = true; t.error = ""; this._paintScene();
+    try {
+      await this._ws({ type: "viewmyihc/scene/test", auth });
+      this._sceneTest = null; this._showToast(this.t("scTestDone")); this._loadScene(true); return;
+    } catch (err) { t.busy = false; t.error = this._authError(err); }
+    this._paintScene();
+  }
+
+  async _sceneSave() {
+    const e = this._sceneEdit; if (!e) return;
+    const auth = this._sceneAuth();
+    if (!auth) { e.error = this.t("adminAuthMissing"); this._paintScene(); return; }
+    const split = (v) => String(v || "").split(/[;,\s]+/).map((x) => x.trim()).filter(Boolean);
+    const notifications = e.notes.map((n) => ({ key: n.key || null, channel: n.channel, resource: Number(n.resource) || 0, event: n.event,
+      recipients: split(n.recipients), slots: n.slots, subject: n.subject, body: n.body }));
+    const controls = e.controls.map((c) => ({ key: c.key || null, channel: c.channel, resource: Number(c.resource) || 0, action: c.action,
+      authorization: c.authorization, trigger: c.trigger, confirmation: c.confirmation, confirmation_address: c.confirmation_address,
+      confirmation_message: c.confirmation_message, senders: c.channel === "sms" ? c.slots : (c.sender ? [c.sender] : []) }));
+    e.busy = true; e.error = ""; this._paintScene();
+    try {
+      const data = await this._ws({ type: "viewmyihc/scene/save", crc: String(this._scene.data.crc || ""), notifications, controls, auth });
+      this._sceneEdit = null; this._scene = { data }; this._showToast(this.t("scSaved")); this._paintScene(); return;
+    } catch (err) { e.busy = false; e.error = this._authError(err); }
+    this._paintScene();
+  }
+
   _sceneHtml() {
     const sc = this._scene;
-    const head = `<h3>${esc(this.t("scTitle"))}<span class="right"><button class="btn small" data-act="scene-reload" ${sc?.loading ? "disabled" : ""}>${esc(this.t("refreshAdmin"))}</button></span></h3>
+    const d0 = sc?.data;
+    const tools = this._sceneEdit ? "" : d0 && !d0.verified
+      ? `<button class="btn-text small" data-act="scene-test"><ha-icon icon="mdi:upload-lock-outline"></ha-icon>${esc(this.t("scTestButton"))}</button>`
+      : d0 ? `<button class="btn-text small" data-act="scene-edit"><ha-icon icon="mdi:pencil-outline"></ha-icon>${esc(this.t("edit"))}</button>` : "";
+    const head = `<h3>${esc(this.t("scTitle"))}<span class="right">${tools}<button class="btn small" data-act="scene-reload" ${sc?.loading || this._sceneEdit ? "disabled" : ""}>${esc(this.t("refreshAdmin"))}</button></span></h3>
       <p class="help">${esc(this.t("scLead"))}</p>`;
     if (!sc || sc.loading && !sc.data) return `<section class="card acard">${head}<div class="spinner small"></div></section>`;
     if (sc.error) return `<section class="card acard">${head}<p class="ferr box">${esc(sc.error)}</p></section>`;
     const d = sc.data;
+    if (this._sceneEdit) return `<section class="card acard editing">${head}${this._sceneEditHtml()}</section>`;
     const res = (r) => r?.label ? `<button class="linkbtn" data-jump="${r.id}">${esc(r.name)}</button><small>${esc(r.label)}</small>` : `<code>${r?.id ?? "?"}</code>`;
     const who = (list) => list.map((x) => typeof x === "string" ? esc(x)
       : `<span class="slot" title="${esc(this.t("scSlot").replace("{n}", x.slot))}">${esc(x.label || this.t("scSlot").replace("{n}", x.slot))}${x.number ? ` <small>${esc(x.number)}</small>` : ""}</span>`).join("<br>") || "–";
@@ -1997,7 +2156,7 @@ class ViewMyIHCPanel extends HTMLElement {
           <td>${esc(this.tk("scAuthType", c.authorization))}</td>
           <td>${c.authorization === "three_way" ? `${esc(this.t("scConfirmTo"))}: ${esc(c.confirmation_address || "–")}` : c.authorization === "direct_control" ? esc(this.t("scAnyone")) : who(c.senders)}</td></tr>`).join("")}</tbody></table></div>`
         : `<p class="dim">${esc(this.t("msgNone"))}</p>`}
-      <p class="help">${esc(this.t("scEditNote"))}</p></section>`;
+      ${this._sceneTest ? this._sceneTestHtml() : `<p class="help">${esc(this.t(d.verified ? "scEditReady" : "scEditNote"))}</p>`}</section>`;
   }
 
   _messagesHtml() {
@@ -2992,6 +3151,21 @@ class ViewMyIHCPanel extends HTMLElement {
       case "log-clear-go": this._clearLog(); return true;
       case "reload-messages": this._loadMessages(); return true;
       case "scene-reload": this._loadScene(true); return true;
+      case "scene-test": this._sceneTest = {}; this._paintScene(); return true;
+      case "scene-test-cancel": this._sceneTest = null; this._paintScene(); return true;
+      case "scene-test-go": this._sceneTestGo(); return true;
+      case "scene-edit": this._sceneEditStart(); return true;
+      case "scene-cancel": this._sceneEdit = null; this._paintScene(); return true;
+      case "scene-save": this._sceneSave(); return true;
+      case "scene-allslots": if (this._sceneEdit) { this._sceneEdit.allSlots = true; this._paintScene(); } return true;
+      case "scene-del": if (this._sceneEdit) { (t.dataset.list === "n" ? this._sceneEdit.notes : this._sceneEdit.controls).splice(Number(t.dataset.i), 1); this._paintScene(); } return true;
+      case "scene-add":
+        if (this._sceneEdit) {
+          if (t.dataset.list === "n") this._sceneEdit.notes.push({ key: null, channel: "email", resource: "", event: "inactive_to_active_event", recipients: "", slots: [], subject: "", body: "" });
+          else this._sceneEdit.controls.push({ key: null, channel: "sms", resource: "", action: "off_to_on_action", authorization: "sender_based", trigger: "", confirmation: "", confirmation_address: "", confirmation_message: "", sender: "", slots: [] });
+          this._paintScene();
+        }
+        return true;
       case "monitor-start": this._monitorStart(); return true;
       case "monitor-pause": this._mon.paused = !this._mon.paused; this._renderLogBody(); if (!this._mon.paused) this._monitorPoll(); return true;
       case "monitor-csv": this._monitorCsv(); return true;
@@ -3512,6 +3686,13 @@ ${REPORT_CSS}
 .admin-scene { margin-top:16px; } .admin-scene:empty { display:none; }
 .restorebox { margin-top:14px; } .rspoints { margin:2px 0 4px; padding-left:18px; display:grid; gap:4px; font-size:13px; }
 .rspoints li { list-style:disc; } .rsbusy { display:flex; align-items:center; gap:10px; font-size:13px; margin:6px 0 0; }
+.scedit { display:flex; gap:8px; align-items:flex-start; border:1px solid var(--vmi-border); border-radius:12px; padding:10px 12px; margin:8px 0;
+  background:color-mix(in srgb, var(--vmi-soft) 40%, var(--vmi-card)); }
+.scgrid { flex:1; display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:8px 12px; } .scgrid .field.wide { grid-column:1 / -1; }
+.scgrid select, .scgrid input, .scgrid textarea { font:inherit; color:var(--primary-text-color); background:var(--vmi-card); border:1px solid var(--vmi-border); border-radius:8px; padding:6px 8px; width:100%; }
+.resfield { display:grid; gap:2px; } .reslabel { color:var(--vmi-sub); font-size:11px; }
+.slots { display:flex; flex-wrap:wrap; gap:6px 14px; align-items:center; } .slotpick { display:flex; align-items:center; gap:6px; font-size:13px; }
+.slotpick small { color:var(--vmi-sub); } .slotpick input { width:16px; height:16px; accent-color:var(--vmi-accent); }
 .aform { display:grid; gap:10px; } .field.auth { border-top:1px solid var(--vmi-border); padding-top:10px; margin-top:4px; }
 .field.auth .lbl2 { display:flex; align-items:center; gap:6px; } .field.auth ha-icon { --mdc-icon-size:16px; color:var(--vmi-accent); } .formfoot { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:4px; }
 .acard.editing { border-color:var(--vmi-accent); box-shadow:0 0 0 1px var(--vmi-accent) inset; }

@@ -64,7 +64,9 @@ it uses the connection `ihc` has already made, so it never needs or stores your 
 - Users, time and daylight saving, network, DNS, web access, e-mail (SMTP), e-mail control, SMS modem and system info,
   shown at once from the last saved state while the controller is read in the background; changes are marked.
 - Who gets an SMS or e-mail when a resource changes, and who may control the controller by e-mail/SMS, as set up in
-  IHC SceneDesign (shown with names and phone numbers).
+  IHC SceneDesign (shown with names and phone numbers). These messages and commands can be added, changed or removed
+  from here once a test upload has succeeded on your controller; every save needs the password, the current SceneDesign
+  project is kept under Versions first, and what was sent is read back and checked (the old one is sent back if not).
 - Change them like in IHC Administrator. **Every change needs the password of the user Home Assistant is logged in
   with**, only the fields you change are sent, and the settings Home Assistant itself depends on are protected.
 

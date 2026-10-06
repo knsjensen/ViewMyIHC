@@ -120,36 +120,37 @@ def parse(icz: bytes) -> dict[str, Any]:
     if root.tag != "icwproject":
         raise SceneProjectError(f"Not a SceneDesign project (<{root.tag}>)")
 
-    def notification(item: ET.Element, sms: bool) -> dict[str, Any]:
+    def notification(item: ET.Element, sms: bool, index: int) -> dict[str, Any]:
         message = item.find("message")
         recipient = message.get("recipient", "") if message is not None else ""
         return {
-            "channel": "sms" if sms else "email", "resource": _rid(item), "event": _key(item.get("event")),
+            "key": f"{'smsnotifications' if sms else 'notifications'}:{index}", "channel": "sms" if sms else "email", "resource": _rid(item), "event": _key(item.get("event")),
             "recipients": [] if sms else [r.strip() for r in recipient.split(";") if r.strip()],
             "slots": _slots(recipient) if sms else [],
             "subject": _text(message, "subject"), "body": _text(message, "body"),
         }
 
-    def control(item: ET.Element, sms: bool) -> dict[str, Any]:
+    def control(item: ET.Element, sms: bool, index: int) -> dict[str, Any]:
         auth = item.find("authorization")
         action = item.find("action")
         sender = _text(auth, "acceptsenderaddress")
         return {
-            "channel": "sms" if sms else "email", "resource": _rid(item),
+            "key": f"{'smscontrols' if sms else 'emailcontrols'}:{index}", "channel": "sms" if sms else "email", "resource": _rid(item),
             "action": _key(action.get("type") if action is not None else ""),
             "authorization": _key(auth.get("type") if auth is not None else ""),
             "trigger": _text(auth, "triggersubject"),
             "senders": _slots(sender) if sms else ([sender] if sender else []),
             "confirmation_address": _text(auth, "confirmationaddress"),
             "confirmation": _text(item, "executionconfirmation/body"),
+            "confirmation_message": _text(auth, "confirmationmessage"),
         }
 
     return {
         "name": root.get("name", ""), "version": root.get("version", ""), "description": _text(root, "description"),
-        "notifications": [notification(e, False) for e in root.iterfind("notifications/notification")]
-        + [notification(e, True) for e in root.iterfind("smsnotifications/smsnotification")],
-        "controls": [control(e, False) for e in root.iterfind("emailcontrols/emailcontrol")]
-        + [control(e, True) for e in root.iterfind("smscontrols/smscontrol")],
+        "notifications": [notification(e, False, i) for i, e in enumerate(root.iterfind("notifications/notification"))]
+        + [notification(e, True, i) for i, e in enumerate(root.iterfind("smsnotifications/smsnotification"))],
+        "controls": [control(e, False, i) for i, e in enumerate(root.iterfind("emailcontrols/emailcontrol"))]
+        + [control(e, True, i) for i, e in enumerate(root.iterfind("smscontrols/smscontrol"))],
         "scenes": len(root.findall("scenes/scene")),
     }
 
