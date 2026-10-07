@@ -48,11 +48,20 @@ def _offset(project_ids: dict[int, int], controller: list[dict[str, Any]]) -> in
     return deltas.most_common(1)[0][0] if deltas else 0
 
 
+def _product_of(project: Project, node_id: int) -> int:
+    """The product a terminal belongs to; it can sit in a section of it (a temperature sensor's "Indstillinger")."""
+    current = project.nodes[project.nodes[node_id].parent]
+    while current.category == "section" and current.parent in project.nodes and current.parent != current.id:
+        current = project.nodes[current.parent]
+    return current.id if current.category == "product" else project.nodes[node_id].parent
+
+
 def _describe(project: Project, resource_id: int) -> dict[str, Any]:
     node = project.nodes[resource_id]
-    path = project.path(node.id)
+    product_id = _product_of(project, node.id)
+    product = project.nodes.get(product_id)
     return {"id": node.id, "name": node.name, "label": project.label(node.id), "kind": node.value_kind,
-            "product": path[-2]["name"] if len(path) > 1 else None, "product_id": node.parent, "links": len(node.links)}
+            "product": product.name if product is not None else None, "product_id": product_id, "links": len(node.links)}
 
 
 def layout(project: Project, controller: dict[str, list[dict[str, Any]]] | None = None) -> dict[str, Any]:

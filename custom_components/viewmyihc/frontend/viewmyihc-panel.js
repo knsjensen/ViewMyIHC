@@ -240,7 +240,11 @@ const I18N_EXTRA = {
     weekdays: { monday: "Mandag", tuesday: "Tirsdag", wednesday: "Onsdag", thursday: "Torsdag", friday: "Fredag", saturday: "Lørdag", sunday: "Søndag" },
     map: "Kort", mapSearch: "Find produkt …", mapZoomIn: "Zoom ind", mapZoomOut: "Zoom ud", mapHome: "Controlleren og modulerne",
     mapAll: "Hele anlægget", mapAirlink: "Trådløst (Airlink)", mapNoModule: "intet modul angivet", mapIn: "Ind", mapOut: "Ud",
-    mapLines: "linjer", mapHits: "{n} fundet – Enter for næste", mapUnwired: "{n} produkter uden datalinjeadresse (fx temperaturfølere) vises ikke.",
+    mapLineIn: "Indgang {n}", mapLineOut: "Udgang {n}", mapFree: "ledig", mapFreeShort: "intet tilsluttet",
+    mapFreeLine: "Ledig – intet modul og ingen ressourcer på denne linje i projektet", mapPlace: "Klemme", mapColour: "Ledningsfarve",
+    mapNoColour: "ikke angivet i projektet", mapCableType: "Kabeltype", mapCableNo: "Kabelnummer", mapShowWire: "Vis ledningen",
+    mapWholeProduct: "Vis hele produktet", mapValue: "Værdi",
+    mapLines: "linjer", mapHits: "{n} fundet – Enter for næste", mapUnwired: "{n} produkter uden datalinjeadresse vises ikke.",
     scChannel: "Kanal", scSubject: "Emne", scSmsText: "SMS-tekst (højst 60 tegn)", scPickRes: "Søg ressource (navn eller id)", scUnknownRes: "Ukendt ressource",
     scAllSlots: "Vis alle 30 numre", scAddNote: "Tilføj besked", scAddControl: "Tilføj kommando", scConfirmText: "Bekræftelsestekst",
     scSaveNote: "Ændringerne sendes til controlleren. Det nuværende scene-projekt gemmes først under Versioner, og det sendte kontrolleres bagefter – går noget galt, sendes det gamle tilbage.",
@@ -361,7 +365,11 @@ const I18N_EXTRA = {
     weekdays: { monday: "Monday", tuesday: "Tuesday", wednesday: "Wednesday", thursday: "Thursday", friday: "Friday", saturday: "Saturday", sunday: "Sunday" },
     map: "Map", mapSearch: "Find product …", mapZoomIn: "Zoom in", mapZoomOut: "Zoom out", mapHome: "Controller and modules",
     mapAll: "Whole installation", mapAirlink: "Wireless (Airlink)", mapNoModule: "no module entered", mapIn: "In", mapOut: "Out",
-    mapLines: "lines", mapHits: "{n} found – Enter for next", mapUnwired: "{n} products without a dataline address (e.g. temperature sensors) are not shown.",
+    mapLineIn: "Input {n}", mapLineOut: "Output {n}", mapFree: "free", mapFreeShort: "nothing connected",
+    mapFreeLine: "Free – no module and no resources on this line in the project", mapPlace: "Terminal", mapColour: "Wire colour",
+    mapNoColour: "not entered in the project", mapCableType: "Cable type", mapCableNo: "Cable number", mapShowWire: "Show the wire",
+    mapWholeProduct: "Show the whole product", mapValue: "Value",
+    mapLines: "lines", mapHits: "{n} found – Enter for next", mapUnwired: "{n} products without a dataline address are not shown.",
     scChannel: "Channel", scSubject: "Subject", scSmsText: "SMS text (at most 60 characters)", scPickRes: "Search a resource (name or id)", scUnknownRes: "Unknown resource",
     scAllSlots: "Show all 30 numbers", scAddNote: "Add message", scAddControl: "Add command", scConfirmText: "Confirmation text",
     scSaveNote: "The changes are sent to the controller. The current scene project is kept under Versions first, and what was sent is checked afterwards – if something goes wrong the old one is sent back.",
@@ -522,7 +530,7 @@ const CAT_ICON = {
 };
 
 // Must equal "version" in manifest.json / VERSION in const.py (a test checks this)
-const PANEL_VERSION = "0.14.0";
+const PANEL_VERSION = "0.15.0";
 const POLL_MS = 3000;
 const HOLD_INTENT_MS = 150;  // a finger must rest this long on "hold to change" before it counts as a press
 const HOLD_MOVE_PX = 8;      // moving more than this before then is a scroll
@@ -2643,7 +2651,7 @@ class ViewMyIHCPanel extends HTMLElement {
     const side_modules = {};
     for (const [side, dir] of Object.entries(sides)) {
       const list = d[side].map((l) => ({ key: `${side}:${l.line}`, side, line: l.line, type: l.type, location: l.location,
-        capacity: l.capacity, used: l.used - l.outside, outside: l.outside, slots: l.slots }));
+        capacity: l.capacity, used: l.used - l.outside, outside: l.outside, slots: l.slots, free: !!l.free }));
       const air = d.airlink[side];
       if (air.length) {
         list.push({ key: `${side}:air`, side, air: true, line: null, type: this.t("mapAirlink"), location: "", capacity: air.length,
@@ -2661,7 +2669,7 @@ class ViewMyIHCPanel extends HTMLElement {
         const half = Math.ceil(usable.length / 2);
         mod.top = mod.air ? [] : usable.slice(0, half);
         mod.bottom = mod.air ? [] : [...usable.slice(half), ...extra];
-        mod.hue = mod.air ? null : (colorIndex++ * 47) % 360;
+        mod.hue = mod.air || mod.free ? null : (colorIndex++ * 47) % 360;
       }
       // products in the order of the terminals they hang on; a product appears once per side
       const placed = new Map();
@@ -2687,7 +2695,7 @@ class ViewMyIHCPanel extends HTMLElement {
         mod.cols = n <= 3 ? 1 : n <= 8 ? 2 : n <= 15 ? 3 : 4;
         mod.rows = Math.max(1, Math.ceil(n / mod.cols));
         mod.rowH = Math.max(C.prodH, ...mod.products.map((p) => p.h)) + C.prodGap;
-        mod.blockH = Math.max(C.modH + 2 * C.modRoom, mod.rows * mod.rowH - C.prodGap);
+        mod.blockH = mod.free ? C.modH : Math.max(C.modH + 2 * C.modRoom, mod.rows * mod.rowH - C.prodGap);
         mod.blockY = y;
         y += mod.blockH + C.blockGap;
       }
@@ -2721,7 +2729,8 @@ class ViewMyIHCPanel extends HTMLElement {
         const c1 = mod.air ? [sx + dir * 140, sy] : [sx, sy + out * lead];
         const c2 = [w.px - dir * 150, w.py];
         nodes.wires.push({ d: `M${sx},${sy} C${c1[0]},${c1[1]} ${c2[0]},${c2[1]} ${w.px},${w.py}`, hue: mod.hue, air: !!mod.air,
-          mod: mod.key, product: w.product.key, pid: w.product.id, rid: slot.id, sx, sy });
+          mod: mod.key, product: w.product.key, pid: w.product.id, rid: slot.id, sx, sy, colours: slot.colours || [], slot,
+          place: this._mapPlace(mod, slot) });
       }
     }
     // the controller: one port per module on each side
@@ -2735,7 +2744,7 @@ class ViewMyIHCPanel extends HTMLElement {
         const py = ctrl.y + 90 + (ctrl.h - 120) * (mods.length > 1 ? i / (mods.length - 1) : 0.5);
         const mx = dir < 0 ? mod.x + mod.w : mod.x, my = mod.y + mod.h / 2;
         nodes.cables.push({ d: `M${px},${py} C${px + dir * 120},${py} ${mx - dir * 120},${my} ${mx},${my}`, hue: mod.hue, air: !!mod.air,
-          mod: mod.key, px, py, label: mod.air ? "RF" : String(mod.line) });
+          free: mod.free, mod: mod.key, px, py, label: mod.air ? "RF" : `${side === "inputs" ? "I" : "O"}${mod.line}` });
       });
     }
     nodes.ctrl = ctrl;
@@ -2745,6 +2754,21 @@ class ViewMyIHCPanel extends HTMLElement {
     const homeW = C.ctrlW + 2 * (C.gapCM + C.modW) + 240;
     nodes.home = { x: -homeW / 2, y: Math.min(ctrl.y - 80, -homeW * 0.3), w: homeW, h: Math.max(ctrl.h + 160, homeW * 0.6) };
     return nodes;
+  }
+
+  // where a wire ends: "I6.05" (input line 6, terminal .05), or the channel of a wireless product
+  _mapPlace(mod, slot) {
+    return mod.air ? slot.terminal : `${mod.side === "inputs" ? "I" : "O"}${mod.line}.${slot.position > 8 ? slot.position + 2 : "0" + slot.position}`;
+  }
+
+  _mapModTitle(mod) {
+    if (mod.air) return mod.type;
+    const line = this.t(mod.side === "inputs" ? "mapLineIn" : "mapLineOut").replace("{n}", mod.line);
+    return `${line} · ${mod.free ? this.t("mapFree") : mod.type || this.t("mapNoModule")}`;
+  }
+
+  _swatches(colours) {
+    return (colours || []).map((c) => `<span class="swatch" style="background:${c}"></span>`).join("");
   }
 
   _mapIcon(p) {
@@ -2784,8 +2808,14 @@ class ViewMyIHCPanel extends HTMLElement {
     const trunc = (s, n) => (s && s.length > n ? s.slice(0, n - 1) + "…" : s || "");
     const label = (pos) => (pos > 8 ? pos + 2 : "0" + pos);
     const parts = [];
-    parts.push(`<g class="cables">${L.cables.map((c) => `<path class="cable ${c.air ? "air" : ""}" data-m="${c.mod}" d="${c.d}" stroke="${wireColor(c)}"/>`).join("")}</g>`);
-    parts.push(`<g class="wires">${L.wires.map((w) => `<path class="wire ${w.air ? "air" : ""}" data-m="${w.mod}" data-p="${w.product}" d="${w.d}" stroke="${wireColor(w, true)}"/>`).join("")}</g>`);
+    const ownColour = (w) => (w.colours.length ? w.colours[0] : wireColor(w, true));
+    parts.push(`<g class="cables">${L.cables.map((c) => `<path class="cable ${c.air ? "air" : ""} ${c.free ? "free" : ""}" data-m="${c.mod}" d="${c.d}" stroke="${wireColor(c)}"/>`).join("")}</g>`);
+    // each wire: a casing (so black and white wires show on any background), its colour, a stripe for a second colour,
+    // and a wide invisible path on top that takes the click
+    parts.push(`<g class="wires">${L.wires.map((w) => `<g class="wire ${w.air ? "air" : ""} ${w.colours.length ? "col" : ""}" data-m="${w.mod}" data-p="${w.product}" data-r="${w.rid}">
+        <path class="wcase" d="${w.d}"/><path class="wline" d="${w.d}" stroke="${ownColour(w)}"/>
+        ${w.colours.length > 1 ? `<path class="wstripe" d="${w.d}" stroke="${w.colours[1]}"/>` : ""}
+        <path class="whit" d="${w.d}" data-act="map-wire" data-rid="${w.rid}"><title>${esc([w.place, w.slot.name, w.slot.colour].filter(Boolean).join(" · "))}</title></path></g>`).join("")}</g>`);
     const ct = L.ctrl;
     parts.push(`<g class="ctrl" data-act="map-ctrl"><rect x="${ct.x}" y="${ct.y}" width="${ct.w}" height="${ct.h}" rx="14"/>
       <rect class="ctrl-top" x="${ct.x}" y="${ct.y}" width="${ct.w}" height="64" rx="14"/><rect class="ctrl-top" x="${ct.x}" y="${ct.y + 40}" width="${ct.w}" height="24"/>
@@ -2796,14 +2826,14 @@ class ViewMyIHCPanel extends HTMLElement {
       <text class="t-sub" x="${ct.x + ct.w - 14}" y="${ct.y + 92}" text-anchor="end">${esc(this.t("mapOut"))}</text>
       ${L.cables.map((c) => `<circle class="cport" cx="${c.px}" cy="${c.py}" r="7" fill="${wireColor(c)}"/><text class="t-port" x="${c.px + (c.px < 0 ? 14 : -14)}" y="${c.py + 4}" text-anchor="${c.px < 0 ? "start" : "end"}">${esc(c.label)}</text>`).join("")}</g>`);
     for (const mod of L.modules) {
-      const term = (s) => `<g class="term ${s.name ? "used" : ""} ${s.usable ? "" : "outside"}">
-          <circle cx="${s.x}" cy="${s.y}" r="6" ${s.name ? `fill="${wireColor(mod, true)}"` : ""}/>
+      const term = (s) => `<g class="term ${s.name ? "used" : ""} ${s.usable ? "" : "outside"} ${s.colours?.length ? "col" : ""}" ${s.name ? `data-r="${s.id}"` : ""}>
+          <circle cx="${s.x}" cy="${s.y}" r="6" ${s.name ? `fill="${s.colours?.[0] || wireColor(mod, true)}"` : ""}/>
           <text class="t-term lod1" x="${s.x}" y="${s.row === "top" ? s.y + 20 : s.y - 12}" text-anchor="middle">${label(s.position)}</text></g>`;
-      parts.push(`<g class="mod ${mod.air ? "air" : ""}" data-act="map-mod" data-key="${mod.key}">
+      parts.push(`<g class="mod ${mod.air ? "air" : ""} ${mod.free ? "free" : ""}" data-act="map-mod" data-key="${mod.key}">
         <rect x="${mod.x}" y="${mod.y}" width="${mod.w}" height="${mod.h}" rx="8" style="--hue:${mod.hue ?? 0}"/>
         <rect class="mod-band" x="${mod.x}" y="${mod.y + mod.h / 2 - 22}" width="${mod.w}" height="44" ${mod.hue !== null ? `fill="hsl(${mod.hue} 55% 45% / .14)"` : ""}/>
-        <text class="t-mod" x="${mod.x + mod.w / 2}" y="${mod.y + mod.h / 2 - 3}" text-anchor="middle">${esc(mod.air ? mod.type : `${this.t("dlLine").replace("{n}", mod.line)} · ${mod.type || this.t("mapNoModule")}`)}</text>
-        <text class="t-sub lod1" x="${mod.x + mod.w / 2}" y="${mod.y + mod.h / 2 + 16}" text-anchor="middle">${esc([mod.location, `${mod.used}/${mod.capacity}`].filter(Boolean).join(" · "))}</text>
+        <text class="t-mod" x="${mod.x + mod.w / 2}" y="${mod.y + mod.h / 2 - 3}" text-anchor="middle">${esc(this._mapModTitle(mod))}</text>
+        <text class="t-sub lod1" x="${mod.x + mod.w / 2}" y="${mod.y + mod.h / 2 + 16}" text-anchor="middle">${esc(mod.free ? this.t("mapFreeShort") : [mod.location, `${mod.used}/${mod.capacity}`].filter(Boolean).join(" · "))}</text>
         ${mod.air ? `<foreignObject x="${mod.x + 10}" y="${mod.y + mod.h / 2 - 16}" width="32" height="32"><ha-icon icon="mdi:access-point" style="color:var(--vmi-accent)"></ha-icon></foreignObject>` : ""}
         ${[...mod.top, ...mod.bottom].map(term).join("")}</g>`);
     }
@@ -2818,7 +2848,7 @@ class ViewMyIHCPanel extends HTMLElement {
         <text class="t-prod" x="${ix + 64}" y="${p.y + p.h / 2 - 6}">${esc(trunc(p.name, 24))}</text>
         <text class="t-sub lod1" x="${ix + 64}" y="${p.y + p.h / 2 + 12}">${esc(trunc([p.location, p.position].filter(Boolean).join(" · "), 30))}</text>
         <title>${esc([p.name, p.location, p.position].filter(Boolean).join(" · "))}</title>
-        ${p.ports.map((w) => `<circle class="pport" cx="${w.px}" cy="${w.py}" r="4" fill="${wireColor(w.mod, true)}"/>`).join("")}</g>`);
+        ${p.ports.map((w) => `<circle class="pport" data-r="${w.slot.id}" cx="${w.px}" cy="${w.py}" r="4" fill="${w.slot.colours?.[0] || wireColor(w.mod, true)}"/>`).join("")}</g>`);
     }
     svg.innerHTML = parts.join("");
     this._mapHighlight();
@@ -2923,12 +2953,19 @@ class ViewMyIHCPanel extends HTMLElement {
       svg.querySelectorAll(`[data-m="${sel.key}"], .mod[data-key="${sel.key}"]`).forEach((el) => el.classList.add("hl"));
       const prods = new Set([...svg.querySelectorAll(`.wire[data-m="${sel.key}"]`)].map((el) => el.dataset.p));
       prods.forEach((k) => svg.querySelectorAll(`.prod[data-key="${k}"]`).forEach((el) => el.classList.add("hl")));
+    } else if (sel.type === "wire") {
+      // one wire, the whole way: product, wire, terminal, module and the cable to the controller
+      const w = this._map.layout.wires.find((x) => String(x.rid) === String(sel.key)); if (!w) return;
+      svg.querySelectorAll(`[data-r="${w.rid}"]`).forEach((el) => el.classList.add("hl", "one"));
+      svg.querySelectorAll(`.mod[data-key="${w.mod}"], .cable[data-m="${w.mod}"], .prod[data-key="${w.product}"]`).forEach((el) => el.classList.add("hl"));
     }
     svg.querySelector(".ctrl")?.classList.add("hl");
   }
 
   _mapCardIds() {
-    const m = this._map; if (!m?.sel || m.sel.type !== "prod" || !m.layout) return [];
+    const m = this._map; if (!m?.sel || !m.layout) return [];
+    if (m.sel.type === "wire") return [Number(m.sel.key)];
+    if (m.sel.type !== "prod") return [];
     const pid = Number(m.sel.key.split(":")[1]);
     return m.layout.wires.filter((w) => w.pid === pid).map((w) => w.rid).filter(Boolean);
   }
@@ -2936,7 +2973,7 @@ class ViewMyIHCPanel extends HTMLElement {
   _renderMapCard() {
     const el = this.shadowRoot.querySelector(".mapcard"); const m = this._map; if (!el) return;
     const sel = m?.sel; el.hidden = !sel; if (!sel) { el.innerHTML = ""; return; }
-    const L = m.layout, label = (pos) => (pos > 8 ? pos + 2 : "0" + pos);
+    const L = m.layout;
     let html = "";
     if (sel.type === "prod") {
       const pid = Number(sel.key.split(":")[1]);
@@ -2944,23 +2981,41 @@ class ViewMyIHCPanel extends HTMLElement {
       const rows = L.modules.flatMap((mod) => mod.slots.filter((s) => s.product_id === pid && s.name).map((s) => ({ mod, s })));
       const img = m.images[p.identifier];
       html = `<header>${img ? `<img src="${img}" alt=""/>` : `<ha-icon icon="${this._mapIcon(p)}"></ha-icon>`}
-          <div><h3>${esc(p.name)}</h3><div class="dim small">${esc([p.location, p.position].filter(Boolean).join(" · "))}</div></div>
+          <div><h3>${esc(p.name)}</h3><div class="dim small">${esc([p.location, p.position].filter(Boolean).join(" · "))}</div>
+          ${p.cable_type || p.cable_number ? `<div class="dim small">${esc([p.cable_type, p.cable_number].filter(Boolean).join(" · "))}</div>` : ""}</div>
           <button class="icon-btn" data-act="map-close" aria-label="${esc(this.t("close"))}"><ha-icon icon="mdi:close"></ha-icon></button></header>
         <ul class="maprows">${rows.map(({ mod, s }) => {
           const f = this._values.has(s.id) ? this.fmt(s.kind, this._values.get(s.id)) : { text: "", cls: "none" };
-          const place = mod.air ? s.terminal : `${mod.side === "inputs" ? "I" : "O"}${mod.line}.${label(s.position)}`;
-          return `<li><code>${esc(place)}</code><span class="grow">${esc(s.name)}</span>
+          return `<li><button class="linkbtn" data-act="map-wire" data-rid="${s.id}" title="${esc(this.t("mapShowWire"))}"><code>${esc(this._mapPlace(mod, s))}</code></button>
+            ${this._swatches(s.colours)}<span class="grow">${esc(s.name)}</span>
             <span class="val ${f.cls}" data-val="${s.id}" data-kind="${esc(s.kind || "bool")}">${esc(f.text)}</span>
             <button class="icon-btn tiny" data-jump="${s.id}" title="${esc(this.t("showInTree"))}"><ha-icon icon="mdi:file-tree"></ha-icon></button></li>`;
         }).join("")}</ul>`;
+    } else if (sel.type === "wire") {
+      const w = L.wires.find((x) => String(x.rid) === String(sel.key));
+      if (!w) { el.hidden = true; return; }
+      const p = L.products.find((x) => x.key === w.product), mod = L.modules.find((x) => x.key === w.mod), s = w.slot;
+      const f = this._values.has(s.id) ? this.fmt(s.kind, this._values.get(s.id)) : { text: "", cls: "none" };
+      const row = (label, value) => `<li><span class="grow dim">${esc(label)}</span><span>${value}</span></li>`;
+      html = `<header><ha-icon icon="mdi:cable-data"></ha-icon>
+          <div><h3>${esc(s.name)}</h3><div class="dim small">${esc([p?.name, p?.location, p?.position].filter(Boolean).join(" · "))}</div></div>
+          <button class="icon-btn" data-act="map-close" aria-label="${esc(this.t("close"))}"><ha-icon icon="mdi:close"></ha-icon></button></header>
+        <ul class="maprows">
+          ${row(this.t("mapPlace"), `<code>${esc(w.place)}</code> <span class="dim small">${esc(this._mapModTitle(mod))}</span>`)}
+          ${row(this.t("mapColour"), s.colour ? `${this._swatches(s.colours)} ${esc(s.colour)}` : `<span class="dim">${esc(this.t("mapNoColour"))}</span>`)}
+          ${p?.cable_type ? row(this.t("mapCableType"), esc(p.cable_type)) : ""}
+          ${p?.cable_number ? row(this.t("mapCableNo"), esc(p.cable_number)) : ""}
+          <li><span class="grow dim">${esc(this.t("mapValue"))}</span><span class="val ${f.cls}" data-val="${s.id}" data-kind="${esc(s.kind || "bool")}">${esc(f.text)}</span>
+            <button class="icon-btn tiny" data-jump="${s.id}" title="${esc(this.t("showInTree"))}"><ha-icon icon="mdi:file-tree"></ha-icon></button></li>
+          ${p ? `<li><button class="linkbtn" data-act="map-prod" data-key="${p.key}">${esc(this.t("mapWholeProduct"))}</button></li>` : ""}</ul>`;
     } else if (sel.type === "mod") {
       const mod = L.modules.find((x) => x.key === sel.key);
       html = `<header><ha-icon icon="${mod.air ? "mdi:access-point" : "mdi:expansion-card-variant"}"></ha-icon>
-          <div><h3>${esc(mod.air ? mod.type : `${this.t("dlLine").replace("{n}", mod.line)} · ${mod.type || this.t("mapNoModule")}`)}</h3>
+          <div><h3>${esc(this._mapModTitle(mod))}</h3>
           <div class="dim small">${esc([mod.location, this.t("dlUsed").replace("{used}", mod.used).replace("{all}", mod.capacity)].filter(Boolean).join(" · "))}</div></div>
           <button class="icon-btn" data-act="map-close" aria-label="${esc(this.t("close"))}"><ha-icon icon="mdi:close"></ha-icon></button></header>
         <ul class="maprows">${mod.products.map((p) => `<li><button class="linkbtn" data-act="map-prod" data-key="${p.key}">${esc(p.name)}</button>
-          <span class="dim small grow">${esc(p.location)}</span></li>`).join("") || `<li class="dim">${esc(this.t("empty"))}</li>`}</ul>`;
+          <span class="dim small grow">${esc(p.location)}</span></li>`).join("") || `<li class="dim">${esc(this.t(mod.free ? "mapFreeLine" : "empty"))}</li>`}</ul>`;
     } else {
       const d = m.data;
       const count = (side) => d[side].reduce((n, l) => n + l.used - l.outside, 0);
@@ -3117,6 +3172,7 @@ class ViewMyIHCPanel extends HTMLElement {
       case "map-all": this._mapFit("all"); return true;
       case "map-prod": this._mapSelect({ type: "prod", key: t.dataset.key }); return true;
       case "map-mod": this._mapSelect({ type: "mod", key: t.dataset.key }); return true;
+      case "map-wire": this._mapSelect({ type: "wire", key: t.dataset.rid }); return true;
       case "map-ctrl": this._mapSelect({ type: "ctrl", key: "ctrl" }); return true;
       case "map-close": this._mapSelect(null); return true;
       case "rep-marked": this._rep.onlyMarked = t.checked; this._loadReport(); return true;
@@ -3670,10 +3726,19 @@ ${REPORT_CSS}
 .mapsvg .term.outside circle { stroke:var(--error-color,#db4437); stroke-width:2.5; }
 .mapsvg .prod > rect:first-child { fill:var(--vmi-card); stroke:var(--vmi-border); stroke-width:1.5; } .mapsvg .prod .imgbg { fill:#fff; stroke:var(--vmi-border); }
 .mapsvg .cable { fill:none; stroke-width:6; stroke-linecap:round; opacity:.85; } .mapsvg .cable.air { stroke-dasharray:2 10; stroke-width:4; }
-.mapsvg .wire { fill:none; stroke-width:2; opacity:.75; } .mapsvg .wire.air { stroke-dasharray:5 6; }
+.mapsvg .wire { opacity:.8; } .mapsvg .wire path { fill:none; } .mapsvg .wire .wline { stroke-width:2; } .mapsvg .wire.air .wline { stroke-dasharray:5 6; }
+.mapsvg .wire .wcase { stroke:var(--vmi-sub); stroke-width:4.5; opacity:.5; } .mapsvg .wire:not(.col):not(.one) .wcase { display:none; }
+.mapsvg .wire.col .wline, .mapsvg .wire .wstripe { stroke-width:2.6; } .mapsvg .wire .wstripe { stroke-dasharray:8 8; }
+.mapsvg .wire .whit { stroke:transparent; stroke-width:16; pointer-events:stroke; cursor:pointer; }
+.mapsvg .cable.free { stroke:var(--vmi-sub); stroke-width:2; stroke-dasharray:4 8; opacity:.5; }
+.mapsvg .mod.free > rect:first-child { stroke-dasharray:6 6; fill:transparent; } .mapsvg .mod.free { opacity:.6; }
+.mapsvg .term.used.col circle { stroke:var(--vmi-sub); stroke-width:1; }
 .mapsvg .prod:hover > rect:first-child, .mapsvg .mod:hover > rect:first-child { stroke:var(--vmi-accent); }
-.mapsvg.has-sel .wire:not(.hl), .mapsvg.has-sel .cable:not(.hl) { opacity:.12; } .mapsvg.has-sel .prod:not(.hl), .mapsvg.has-sel .mod:not(.hl) { opacity:.35; }
-.mapsvg .wire.hl { stroke-width:3.5; opacity:1; } .mapsvg .prod.hl > rect:first-child, .mapsvg .mod.hl > rect:first-child { stroke:var(--vmi-accent); stroke-width:3; }
+.mapsvg.has-sel .wire:not(.hl), .mapsvg.has-sel .cable:not(.hl) { opacity:.1; } .mapsvg.has-sel .prod:not(.hl), .mapsvg.has-sel .mod:not(.hl) { opacity:.35; }
+.mapsvg .wire.hl { opacity:1; } .mapsvg .wire.hl .wline, .mapsvg .wire.hl .wstripe { stroke-width:3.5; } .mapsvg .wire.hl .wcase { stroke-width:6; }
+.mapsvg .wire.one .wcase { stroke:var(--vmi-accent); stroke-width:12; opacity:.3; } .mapsvg .wire.one .wline, .mapsvg .wire.one .wstripe { stroke-width:5; }
+.mapsvg .term.one circle { r:10; stroke:var(--vmi-accent); stroke-width:3; } .mapsvg .pport.one { r:7; stroke:var(--vmi-accent); stroke-width:3; }
+.swatch { display:inline-block; width:12px; height:12px; border-radius:3px; border:1px solid var(--vmi-border); vertical-align:-1px; margin-right:3px; } .mapsvg .prod.hl > rect:first-child, .mapsvg .mod.hl > rect:first-child { stroke:var(--vmi-accent); stroke-width:3; }
 .mapsvg[data-lod="mid"] .lod1, .mapsvg[data-lod="far"] .lod1, .mapsvg[data-lod="far"] .t-prod, .mapsvg[data-lod="far"] .t-port { display:none; }
 .mapcard { position:absolute; left:12px; bottom:12px; width:min(380px, calc(100% - 24px)); max-height:60%; overflow:auto; background:var(--vmi-card);
   border:1px solid var(--vmi-border); border-radius:var(--vmi-radius); box-shadow:0 6px 24px rgba(0,0,0,.25); padding:12px 14px; }

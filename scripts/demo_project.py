@@ -46,6 +46,8 @@ def demo_project() -> str:
     outputs = _addresses(OUTPUT_MODULES, 8, skip_first=8)
     rooms: dict[str, list[str]] = {room: [] for room in ROOMS}
     room_cycle = itertools.cycle(ROOMS)
+    # the wire colours of a 5x2 cable as installers write them in IHC Visual ("Ledningsfarve"), now and then left out
+    colours = itertools.cycle(["Orange", "Hvid", "Brun", "Rød", "Grå", "Gul", "", "Blå (0V = Sort)", "Grøn", "Hvid+Lilla"])
     # buttons first so that each one's inputs sit next to each other, like a real installation
     for identifier, name, n_in, n_out, count in PRODUCTS:
         for _ in range(count):
@@ -53,14 +55,14 @@ def demo_project() -> str:
             children = []
             for i in range(n_in):
                 address = next(inputs, 0)
-                children.append(f'<dataline_input id="_0x{next(ids):x}" name="Tast {i + 1}" address_dataline="_0x{address:x}"/>')
+                children.append(f'<dataline_input id="_0x{next(ids):x}" name="Tast {i + 1}" address_dataline="_0x{address:x}" cable_colour="{next(colours)}"/>')
             for i in range(n_out):
                 address = next(outputs, 0)
                 label = "Diode" if n_in else name
-                children.append(f'<dataline_output id="_0x{next(ids):x}" name="{label} {i + 1}" address_dataline="_0x{address:x}"/>')
+                children.append(f'<dataline_output id="_0x{next(ids):x}" name="{label} {i + 1}" address_dataline="_0x{address:x}" cable_colour="{next(colours)}"/>')
             rooms[room].append(
                 f'<product_dataline id="_0x{next(ids):x}" name={quoteattr(name)} product_identifier="{identifier}" '
-                f'position={quoteattr(f"{room} ved døren")} cabletype="5x1,5mm2 NOIKJ" power_group="Gruppe {len(rooms[room]) % 4 + 1}"'
+                f'position={quoteattr(f"{room} ved døren")} cabletype="5x1,5mm2 NOIKJ" cablenumber="Kabel {next(ids) % 40 + 1}" power_group="Gruppe {len(rooms[room]) % 4 + 1}"'
                 f' enduser_report="{"yes" if n_in >= 2 else "no"}">{"".join(children)}</product_dataline>'
             )
     remote = "".join(f'<airlink_input id="_0x{next(ids):x}" name="Tast {i + 1}" address_channel="_0x{i + 1:x}"/>' for i in range(8))

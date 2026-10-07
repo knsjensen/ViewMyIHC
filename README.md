@@ -32,8 +32,9 @@ it uses the connection `ihc` has already made, so it never needs or stores your 
   (`.01–.08`, `.11–.18`). Click a position to see and control it.
 - **Map:** the installation as a wiring diagram – the controller in the middle, input modules to the left, output modules
   to the right, and a wire from the very terminal a product is connected to out to the product, with LK's own product
-  pictures. Zoom with wheel, pinch or buttons, drag to move, search, and tap a product to see its terminals with live
-  values.
+  pictures. Wires get the colour entered in IHC Visual ("Ledningsfarve"), and every connector of the controller is
+  shown, the free ones too. Zoom with wheel, pinch or buttons, drag to move, search, tap a product to see its terminals
+  with live values, or tap a wire to follow it all the way from the product to the controller.
 
 ![The wiring map](assets/screenshots/map-detail.png)
 

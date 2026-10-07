@@ -2,7 +2,7 @@
 
 DOMAIN = "viewmyihc"
 # Must equal "version" in manifest.json and PANEL_VERSION in frontend/viewmyihc-panel.js (a test checks this)
-VERSION = "0.14.0"
+VERSION = "0.15.0"
 IHC_DOMAIN = "ihc"
 # Key under hass.data["ihc"][serial] that holds the IHCController (see homeassistant/components/ihc/const.py)
 IHC_CONTROLLER_KEY = "controller"
