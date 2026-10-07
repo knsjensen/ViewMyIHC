@@ -80,3 +80,15 @@ def test_function_block_documentation_leaves_out_internal_settings(project):
 
 def test_documentation_details_never_reach_the_project_info(project):
     assert "Elektrikeren" not in repr(project.info) and "Familien" not in repr(project.info)
+
+
+def test_a_terminal_inside_a_section_of_the_product_is_reported_with_it():
+    project = parser.Project(
+        '<utcs_project version_major="4" version_minor="0"><group id="_0x10" name="Varmestyring">'
+        '<product_dataline id="_0x11" name="Temperatur sensor" product_identifier="_0x2124" enduser_report="yes">'
+        '<settings id="_0x12" name="Indstillinger"><dataline_input id="_0x13" name="Temperatur sensor indgang" address_dataline="_0x55"'
+        ' cable_colour="Grøn"/><resource_temperature id="_0x14" name="Setpunkt"/></settings></product_dataline></group></utcs_project>')
+    product = rb.installation(project)["products"][0]
+    assert product["identifier"] == "_0x2124"
+    assert [(t["name"], t["terminal"], t["colour"]) for t in product["terminals"]] == [("Temperatur sensor indgang", "6.05", "Grøn")]
+    assert [i["name"] for i in rb.function(project)["groups"][0]["products"][0]["inputs"]] == ["Temperatur sensor indgang"]

@@ -127,3 +127,14 @@ def answer(**fields) -> ET.Element:
         '<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"><SOAP-ENV:Body>'
         f'<ns1:r xmlns:ns1="utcs">{inner}</ns1:r></SOAP-ENV:Body></SOAP-ENV:Envelope>'
     )
+
+
+class ProductImages:
+    """Stands in for the picture cache: records what was asked for, fetches nothing."""
+
+    def __init__(self) -> None:
+        self.asked: list[list[str]] = []
+
+    def get(self, controller, identifiers):
+        self.asked.append(list(identifiers))
+        return dict.fromkeys(identifiers)

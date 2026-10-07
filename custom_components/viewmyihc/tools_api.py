@@ -23,7 +23,7 @@ from .ihc_bridge import BridgeError, fetch_project_xml
 from .press_automation import press_automation
 from .project_diff import diff
 from .project_parser import Project, ProjectError
-from .product_images import ProductImages
+from .product_images import ProductImages, identifiers
 from .report_builder import REPORTS
 from .wiring_map import wiring
 from .admin_api import WrongPassword, _check_password
@@ -220,11 +220,28 @@ async def ws_map_images(hass: HomeAssistant, connection: websocket_api.ActiveCon
     except BridgeError as err:
         _fail(connection, msg["id"], err)
         return
+    images = await hass.async_add_executor_job(product_images(hass).get, controller, msg["identifiers"][:100])
+    connection.send_result(msg["id"], {"images": images})
+
+
+def product_images(hass: HomeAssistant) -> ProductImages:
     store = _store(hass)
     if "product_images" not in store:
         store["product_images"] = ProductImages(Path(hass.config.path(".storage", "viewmyihc_images")))
-    images = await hass.async_add_executor_job(store["product_images"].get, controller, msg["identifiers"][:100])
-    connection.send_result(msg["id"], {"images": images})
+    return store["product_images"]
+
+
+def prefetch_product_images(hass: HomeAssistant, controller: Any, project: Project) -> None:
+    """Keep every product picture the controller has in Home Assistant, so its online documentation can be switched
+    off afterwards (runs in the background after a project load; pictures already kept are not fetched again)."""
+    ids = identifiers(project)
+    if not ids:
+        return
+
+    async def fetch() -> None:
+        await hass.async_add_executor_job(product_images(hass).get, controller, ids)
+
+    hass.async_create_background_task(fetch(), "viewmyihc product pictures")
 
 
 @_command("report", {vol.Required("report"): vol.In(tuple(REPORTS)), vol.Optional("only_marked", default=True): bool})

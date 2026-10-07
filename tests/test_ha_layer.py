@@ -35,7 +35,8 @@ async def hass(tmp_path):
         if asyncio.iscoroutine(loaded):
             await loaded
     core.data["ihc"] = {SERIAL: {"controller": fakes.Controller()}}
-    core.data[DOMAIN] = {"projects": {}, "admin_snapshots": AdminSnapshotStore(core)}
+    core.data[DOMAIN] = {"projects": {}, "admin_snapshots": AdminSnapshotStore(core),
+                         "product_images": fakes.ProductImages()}  # never the network in tests
     await core.data[DOMAIN]["admin_snapshots"].async_load()
     yield core
     await core.async_stop(force=True)
@@ -898,3 +899,11 @@ async def test_setup_needs_the_disclaimer_accepted(hass):
     assert refused["type"] == "form" and refused["errors"] == {"accept": "must_accept"}
     created = await flow.async_step_user({"accept": True})
     assert created["type"] == "create_entry" and "disclaimer_accepted" in created["data"]
+
+
+async def test_loading_the_project_keeps_all_product_pictures(hass):
+    conn = await load_project(hass)
+    assert conn.error is None, conn.error
+    await hass.async_block_till_done()
+    asked = hass.data[DOMAIN]["product_images"].asked
+    assert asked and asked[-1] == sorted(set(asked[-1]))  # every product type at once

@@ -20,6 +20,11 @@ MAX_BYTES = 300_000
 TIMEOUT = (5, 10)
 
 
+def identifiers(project: Any) -> list[str]:
+    """The product types of a project, for fetching all their pictures at once."""
+    return sorted({n.attrs.get("product_identifier", "") for n in project.nodes.values() if n.category == "product"} - {""})
+
+
 class ProductImages:
     def __init__(self, folder: Path) -> None:
         self._folder = folder

@@ -34,6 +34,17 @@ def _address(node: Node) -> int:
         return 0
 
 
+def _terminals(project: Project, node: Node) -> list[Node]:
+    """A product's inputs and outputs, also those in a section of it (a temperature sensor's "Indstillinger")."""
+    found: list[Node] = []
+    for child in (project.nodes[c] for c in node.children):
+        if child.category == "section":
+            found.extend(c for c in _terminals(project, child) if c.tag in LINE_SIZE or c.tag.startswith("airlink_"))
+        elif child.is_resource:
+            found.append(child)
+    return found
+
+
 def _note(node: Node) -> str:
     return node.attrs.get("note") or next((v for k, v in node.attrs.items() if k.startswith("note") and v), "")
 
@@ -103,11 +114,12 @@ def installation(project: Project) -> dict[str, Any]:
                 {"direction": "in" if child.tag.endswith("input") else "out", "name": child.name,
                  "terminal": terminal(_address(child), LINE_SIZE[child.tag]) if child.tag in LINE_SIZE else "",
                  "channel": child.attrs.get("address_channel", ""), "colour": child.attrs.get("cable_colour", "")}
-                for child in (project.nodes[c] for c in node.children) if child.is_resource
+                for child in _terminals(project, node)
             ]
             serial = a.get("serialnumber", "")
             products.append({
                 "id": node.id, "kind": "airlink" if node.tag == "product_airlink" else "dataline", "name": node.name,
+                "identifier": a.get("product_identifier", ""),
                 "location": _group_name(project, node), "position": a.get("position", ""), "tag": a.get("documentation_tag", ""),
                 "cablenumber": a.get("cablenumber", ""), "cabletype": a.get("cabletype", ""), "power_group": a.get("power_group", ""),
                 "serial": serial[3:].upper() if serial.startswith("_0x") else serial, "terminals": terminals,
@@ -156,9 +168,10 @@ def function(project: Project, only_marked: bool = True) -> dict[str, Any]:
             group = _parent(project, group)
         key = group.id if group is not None else ROOT_ID
         entry = groups.setdefault(key, {"id": key, "name": location, "products": []})
-        children = [project.nodes[c] for c in node.children]
+        children = _terminals(project, node)
         entry["products"].append({
             "id": node.id, "name": node.name, "position": node.attrs.get("position", ""),
+            "identifier": node.attrs.get("product_identifier", ""),
             "inputs": [{"name": c.name, "does": _does(project, c, location)} for c in children if c.tag.endswith("input")],
             "outputs": [{"name": c.name, "note": _note(c)} for c in children if c.tag.endswith("output")],
         })

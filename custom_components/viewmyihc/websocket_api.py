@@ -133,6 +133,9 @@ async def ws_load(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
         _fail(connection, msg["id"], err)
         return
     projects[serial] = entry
+    from .tools_api import prefetch_product_images  # noqa: PLC0415 - tools_api imports this module
+
+    prefetch_product_images(hass, controller, entry["project"])
     connection.send_result(msg["id"], {"controller": serial, "info": entry["project"].info})
 
 

@@ -455,6 +455,8 @@ const REPORT_CSS = `
 .paper table.rkv { border-collapse:collapse; font-size:12px; } .paper .rkv th { text-align:left; padding:2px 14px 2px 0; color:#6d6e71; font-weight:400; vertical-align:top; } .paper .rkv td { padding:2px 0; }
 .paper .rprods { display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:14px; }
 .paper .rprod, .paper .rbutton { border:1px solid #ccc; border-radius:4px; padding:8px 10px; break-inside:avoid; page-break-inside:avoid; }
+.paper .rimg { float:right; width:72px; height:72px; object-fit:contain; margin:0 0 6px 10px; }
+.paper .rprod::after, .paper .rbutton::after { content:""; display:block; clear:both; }
 .paper .rbutton { margin:0 0 10px; } .paper .rbutton h3 { margin:0 0 6px; } .paper .rpos { color:#6d6e71; font-weight:400; font-size:12px; }
 .paper .rin { margin:4px 0 4px 6px; } .paper .rin ul { margin:2px 0 0 18px; padding:0; } .paper .rin li { list-style:disc; }
 .paper .rout { margin-top:6px; color:#6d6e71; font-size:12px; } .paper .rnote { margin:0 0 6px; color:#444; }
@@ -636,6 +638,8 @@ class ViewMyIHCPanel extends HTMLElement {
   }
 
   // ------------------------------------------------------------------ lifecycle
+
+  get _images() { return this.__images || (this.__images = {}); }
 
   async _start() {
     try {
@@ -2544,6 +2548,15 @@ class ViewMyIHCPanel extends HTMLElement {
     catch (e) { r.error = this._errText(e); r.data = null; }
     r.loading = false;
     if (this._tab === "reports") this._renderBody();
+    if (r.data) {
+      const products = r.data.products || (r.data.groups || []).flatMap((g) => g.products);
+      const ids = [...new Set(products.map((p) => p.identifier).filter((id) => id && !(id in this._images)))];
+      if (ids.length) {
+        try { Object.assign(this._images, (await this._ws({ type: "viewmyihc/map/images", identifiers: ids })).images); }
+        catch (_e) { return; }  // the report stays without pictures
+        if (this._tab === "reports") this._renderBody();
+      }
+    }
   }
 
   _renderReports(body) {
@@ -2582,7 +2595,7 @@ class ViewMyIHCPanel extends HTMLElement {
           <td>${v(r.position)}</td><td>${v(r.tag)}</td><td>${v(r.cabletype)}</td><td>${v(r.cablenumber)}</td><td>${v(r.power_group)}</td><td>${v(r.colour)}</td></tr>`));
       const modules = (list) => list.length ? table([this.t("repLine"), this.t("repModuleType"), this.t("repLocation")],
         list.map((m) => `<tr><td>${m.line}</td><td>${v(m.type)}</td><td>${v(m.location)}</td></tr>`)) : `<p class="rpos">${esc(this.t("repNoModules"))}</p>`;
-      const products = d.products.map((p) => `<div class="rprod">${kv([[this.t("repLocation"), p.location], [this.t("repPosition"), p.position],
+      const products = d.products.map((p) => `<div class="rprod">${this._images[p.identifier] ? `<img class="rimg" src="${this._images[p.identifier]}" alt=""/>` : ""}${kv([[this.t("repLocation"), p.location], [this.t("repPosition"), p.position],
         [this.t("repComponent"), p.name], [this.t("repTag"), p.tag], [this.t("repCableNo"), p.cablenumber], [this.t("repCableType"), p.cabletype],
         [this.t("repPowerGroup"), p.power_group], [this.t("repSerial"), p.serial]])}
         ${p.terminals.length ? table([this.t("repTerminal"), this.t("repColour"), this.t("repIn"), this.t("repOut")], p.terminals.map((t) =>
@@ -2598,7 +2611,7 @@ class ViewMyIHCPanel extends HTMLElement {
     if (kind === "function") {
       if (!d.groups.length) return `${head}<p>${esc(this.t(d.marked_any ? "repNone" : "repNoneMarked"))}</p>`;
       return `${head}${d.groups.map((g) => `<section class="rsec rgroup"><h2>${esc(g.name)}</h2>${g.products.map((p) => `<div class="rbutton">
-        <h3>${esc(p.name)}${p.position ? ` <span class="rpos">${esc(p.position)}</span>` : ""}</h3>
+        ${this._images[p.identifier] ? `<img class="rimg" src="${this._images[p.identifier]}" alt=""/>` : ""}<h3>${esc(p.name)}${p.position ? ` <span class="rpos">${esc(p.position)}</span>` : ""}</h3>
         ${p.inputs.map((i) => `<div class="rin"><b>${esc(i.name)}</b>${i.does.length ? `<ul>${i.does.map((x) => `<li>${esc(x.text)}${x.where ? ` <span class="rpos">(${esc(x.where)})</span>` : ""}</li>`).join("")}</ul>`
           : `<span class="rpos"> – ${esc(this.t("repNotUsed"))}</span>`}</div>`).join("")}
         ${p.outputs.length ? `<div class="rout">${esc(this.t("repOutputs"))}: ${p.outputs.map((o) => esc(o.name + (o.note ? ` (${o.note})` : ""))).join(", ")}</div>` : ""}</div>`).join("")}</section>`).join("")}`;
@@ -2635,7 +2648,7 @@ class ViewMyIHCPanel extends HTMLElement {
   // module at the terminal it is really connected to. Drawn as SVG; pan/zoom by changing the viewBox.
 
   async _loadMap() {
-    const m = this._map || (this._map = { view: null, sel: null, q: "", images: {} });
+    const m = this._map || (this._map = { view: null, sel: null, q: "", images: this._images });
     m.loading = true; m.error = ""; if (this._tab === "map") this._renderBody();
     try {
       m.data = await this._ws({ type: "viewmyihc/map" });

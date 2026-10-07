@@ -83,7 +83,8 @@ project restarts the controller's program, so outputs and counters start again f
 ### Reports – documentation for the house
 
 The three reports from the controller's own report pages – installation documentation, function documentation for the
-people living in the house, and function block documentation – ready to print, save as PDF or download as HTML.
+people living in the house, and function block documentation – with LK's product pictures, ready to print, save as PDF
+or download as HTML.
 
 ### Administration – the controller's settings
 
@@ -157,6 +158,11 @@ When you add the integration in Home Assistant you are asked to accept this.
 - Home Assistant **2026.9** or newer.
 - The built-in **`ihc` integration** set up in `configuration.yaml` and connected to your controller.
 - The panel is only shown to Home Assistant administrators.
+- Web access on the controller (IHC Administrator → web access): only **ServiceView / Home Assistant on the local
+  network** is needed – that is how the `ihc` integration logs in, and ViewMyIHC uses the same connection. Everything
+  else can be switched off. LK's product pictures come from the controller's *online documentation*; Home Assistant
+  keeps a copy of all of them the first time the project is loaded, so that can be switched off afterwards too. Keep
+  *IHC Visual*, *SceneDesign* and *IHC Administrator* on if you still use those programs.
 
 ## Installation
 
@@ -289,3 +295,9 @@ Inden du går i gang: tag din egen backup af IHC-projektet og SceneDesign-projek
 7. *ViewMyIHC* dukker op i sidebjælken (kun for administratorer).
 
 Kræver Home Assistant 2026.9 eller nyere og den indbyggede `ihc`-integration sat op i `configuration.yaml`.
+
+**Webadgang på controlleren:** kun **ServiceView / Home Assistant på lokalnettet** skal være slået til – det er sådan
+`ihc`-integrationen logger ind, og ViewMyIHC bruger samme forbindelse. Alt andet kan slås fra. LK's produktbilleder
+kommer fra controllerens *online dokumentation*; Home Assistant gemmer en kopi af dem alle, første gang projektet
+indlæses, så den kan også slås fra bagefter. Lad *IHC Visual*, *SceneDesign* og *IHC Administrator* være slået til,
+hvis du stadig bruger de programmer.
