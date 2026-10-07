@@ -540,7 +540,7 @@ const CAT_ICON = {
 };
 
 // Must equal "version" in manifest.json / VERSION in const.py (a test checks this)
-const PANEL_VERSION = "0.16.0";
+const PANEL_VERSION = "1.0.0";
 const POLL_MS = 3000;
 const HOLD_INTENT_MS = 150;  // a finger must rest this long on "hold to change" before it counts as a press
 const HOLD_MOVE_PX = 8;      // moving more than this before then is a scroll
