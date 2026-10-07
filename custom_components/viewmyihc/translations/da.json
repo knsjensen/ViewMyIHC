@@ -3,9 +3,17 @@
     "step": {
       "user": {
         "title": "ViewMyIHC",
-        "description": "Tilføjer et panel i sidebjælken, der viser dit IHC-projekt og controllerens indstillinger. Det bruger forbindelsen fra den indbyggede IHC-integration, så der skal ikke indtastes koder her."
+        "description": "Tilføjer et panel i sidebjælken, der viser dit IHC-projekt og controllerens indstillinger. Det bruger forbindelsen fra den indbyggede IHC-integration, så der skal ikke indtastes koder her.\n\n**Ansvarsfraskrivelse:** ViewMyIHC er et gratis hobbyprojekt, ikke et produkt fra LK eller Schneider Electric, og leveres uden nogen form for garanti. Nogle funktioner ændrer din IHC-controller (værdier, brugere, netværk, beskeder, genindlæsning af et projekt). Du bruger ViewMyIHC helt på eget ansvar: ingen kan holdes ansvarlig for noget, der går tabt, bliver ødelagt eller holder op med at virke, og der kan ikke kræves erstatning. Tag selv backup af IHC-projektet (IHC Visual) og SceneDesign-projektet, før du bruger det.",
+        "data": {
+          "accept": "Jeg har læst ansvarsfraskrivelsen, har selv taget backup og bruger ViewMyIHC på eget ansvar"
+        }
       }
     },
-    "abort": { "single_instance_allowed": "ViewMyIHC er allerede sat op." }
+    "error": {
+      "must_accept": "ViewMyIHC kan kun tilføjes, når du accepterer ansvarsfraskrivelsen."
+    },
+    "abort": {
+      "single_instance_allowed": "ViewMyIHC er allerede sat op."
+    }
   }
 }

@@ -68,7 +68,8 @@ jobs:
         run: |
           flags=""
           if [ "$PRERELEASE" = "true" ]; then flags="--prerelease"; fi
-          gh release create "v$VERSION" viewmyihc.zip --title "v$VERSION" --generate-notes --target "$GITHUB_SHA" $flags
+          # the disclaimer heads every release; GitHub's generated notes follow it
+          gh release create "v$VERSION" viewmyihc.zip --title "v$VERSION" --notes-file .github/RELEASE_DISCLAIMER.md             --generate-notes --target "$GITHUB_SHA" $flags
 
       - name: Attach the zip (release published on GitHub)
         if: github.event_name == 'release'

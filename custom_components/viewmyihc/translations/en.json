@@ -3,9 +3,17 @@
     "step": {
       "user": {
         "title": "ViewMyIHC",
-        "description": "Adds a sidebar panel that shows your IHC project and controller settings. It uses the connection of the built-in IHC integration, so no credentials are needed here."
+        "description": "Adds a sidebar panel that shows your IHC project and controller settings. It uses the connection of the built-in IHC integration, so no credentials are needed here.\n\n**Disclaimer:** ViewMyIHC is a free hobby project, not a product of LK or Schneider Electric, and comes without any warranty. Some functions change your IHC controller (values, users, network, messages, restoring a project). You use ViewMyIHC entirely at your own risk: nobody can be held liable for anything that is lost, damaged or stops working, and no compensation can be claimed. Make your own backup of the IHC project (IHC Visual) and the SceneDesign project before you use it.",
+        "data": {
+          "accept": "I have read the disclaimer, have my own backup and use ViewMyIHC at my own risk"
+        }
       }
     },
-    "abort": { "single_instance_allowed": "ViewMyIHC is already set up." }
+    "error": {
+      "must_accept": "ViewMyIHC can only be added when you accept the disclaimer."
+    },
+    "abort": {
+      "single_instance_allowed": "ViewMyIHC is already set up."
+    }
   }
 }

@@ -240,6 +240,10 @@ const I18N_EXTRA = {
     weekdays: { monday: "Mandag", tuesday: "Tirsdag", wednesday: "Onsdag", thursday: "Torsdag", friday: "Fredag", saturday: "Lørdag", sunday: "Søndag" },
     map: "Kort", mapSearch: "Find produkt …", mapZoomIn: "Zoom ind", mapZoomOut: "Zoom ud", mapHome: "Controlleren og modulerne",
     mapAll: "Hele anlægget", mapAirlink: "Trådløst (Airlink)", mapNoModule: "intet modul angivet", mapIn: "Ind", mapOut: "Ud",
+    aboutTitle: "Om ViewMyIHC", panelVersion: "Version",
+    aboutLead: "Et gratis hobbyprojekt til at se, styre og dokumentere et LK IHC-anlæg fra Home Assistant. Det er ikke lavet af eller godkendt af LK eller Schneider Electric.",
+    disclaimerTitle: "Brug på eget ansvar",
+    disclaimerText: "ViewMyIHC leveres uden nogen form for garanti. Nogle funktioner ændrer controlleren (værdier, brugere, netværk, beskeder, genindlæsning af et projekt). Ingen kan holdes ansvarlig for noget, der går tabt, bliver ødelagt eller holder op med at virke, og der kan ikke kræves erstatning. Det er dit eget ansvar at have en backup af IHC-projektet og SceneDesign-projektet, før du ændrer noget.",
     mapLineIn: "Indgang {n}", mapLineOut: "Udgang {n}", mapFree: "ledig", mapFreeShort: "intet tilsluttet",
     mapFreeLine: "Ledig – intet modul og ingen ressourcer på denne linje i projektet", mapPlace: "Klemme", mapColour: "Ledningsfarve",
     mapNoColour: "ikke angivet i projektet", mapCableType: "Kabeltype", mapCableNo: "Kabelnummer", mapShowWire: "Vis ledningen",
@@ -365,6 +369,10 @@ const I18N_EXTRA = {
     weekdays: { monday: "Monday", tuesday: "Tuesday", wednesday: "Wednesday", thursday: "Thursday", friday: "Friday", saturday: "Saturday", sunday: "Sunday" },
     map: "Map", mapSearch: "Find product …", mapZoomIn: "Zoom in", mapZoomOut: "Zoom out", mapHome: "Controller and modules",
     mapAll: "Whole installation", mapAirlink: "Wireless (Airlink)", mapNoModule: "no module entered", mapIn: "In", mapOut: "Out",
+    aboutTitle: "About ViewMyIHC", panelVersion: "Version",
+    aboutLead: "A free hobby project to view, control and document an LK IHC installation from Home Assistant. It is not made or endorsed by LK or Schneider Electric.",
+    disclaimerTitle: "Use at your own risk",
+    disclaimerText: "ViewMyIHC comes without any warranty. Some functions change the controller (values, users, network, messages, restoring a project). Nobody can be held liable for anything that is lost, damaged or stops working, and no compensation can be claimed. It is your own responsibility to have a backup of the IHC project and the SceneDesign project before you change anything.",
     mapLineIn: "Input {n}", mapLineOut: "Output {n}", mapFree: "free", mapFreeShort: "nothing connected",
     mapFreeLine: "Free – no module and no resources on this line in the project", mapPlace: "Terminal", mapColour: "Wire colour",
     mapNoColour: "not entered in the project", mapCableType: "Cable type", mapCableNo: "Cable number", mapShowWire: "Show the wire",
@@ -530,7 +538,7 @@ const CAT_ICON = {
 };
 
 // Must equal "version" in manifest.json / VERSION in const.py (a test checks this)
-const PANEL_VERSION = "0.15.0";
+const PANEL_VERSION = "0.16.0";
 const POLL_MS = 3000;
 const HOLD_INTENT_MS = 150;  // a finger must rest this long on "hold to change" before it counts as a press
 const HOLD_MOVE_PX = 8;      // moving more than this before then is a scroll
@@ -2515,6 +2523,11 @@ class ViewMyIHCPanel extends HTMLElement {
         <details class="help"><summary>${esc(this.t("setWhy"))}</summary><p>${esc(this.t("setWhyText"))}</p></details>
         ${st.error ? `<p class="ferr box">${esc(st.error)}</p>` : ""}
         <div class="formfoot"><span class="grow"></span><button class="btn small" data-act="save-settings" ${st.busy ? "disabled" : ""}>${esc(st.busy ? this.t("saving") : this.t("save"))}</button></div>
+      </section>
+      <section class="card acard about"><h3>${esc(this.t("aboutTitle"))}<span class="right dim small">${esc(this.t("panelVersion"))} ${esc(PANEL_VERSION)}</span></h3>
+        <p>${esc(this.t("aboutLead"))}</p>
+        <div class="disclaimer"><ha-icon icon="mdi:alert-outline"></ha-icon><div><b>${esc(this.t("disclaimerTitle"))}</b><p>${esc(this.t("disclaimerText"))}</p></div></div>
+        <p class="help"><a href="https://github.com/knsjensen/ViewMyIHC" target="_blank" rel="noopener">github.com/knsjensen/ViewMyIHC</a> · MIT</p>
       </section></div>`;
     body.querySelectorAll("[data-setf]").forEach((el) => el.addEventListener("change", () => {
       f[el.dataset.setf] = el.type === "checkbox" ? el.checked : el.value;
@@ -3758,6 +3771,9 @@ ${REPORT_CSS}
 .resfield { display:grid; gap:2px; } .reslabel { color:var(--vmi-sub); font-size:11px; }
 .slots { display:flex; flex-wrap:wrap; gap:6px 14px; align-items:center; } .slotpick { display:flex; align-items:center; gap:6px; font-size:13px; }
 .slotpick small { color:var(--vmi-sub); } .slotpick input { width:16px; height:16px; accent-color:var(--vmi-accent); }
+.about .disclaimer { display:flex; gap:12px; align-items:flex-start; padding:12px 14px; border-radius:12px;
+  background:color-mix(in srgb, var(--warning-color, #ff9800) 12%, var(--vmi-card)); border:1px solid color-mix(in srgb, var(--warning-color, #ff9800) 45%, transparent); }
+.about p { font-size:13px; line-height:1.5; } .about .disclaimer ha-icon { color:var(--warning-color, #ff9800); flex:none; } .about .disclaimer p { margin:4px 0 0; }
 .aform { display:grid; gap:10px; } .field.auth { border-top:1px solid var(--vmi-border); padding-top:10px; margin-top:4px; }
 .field.auth .lbl2 { display:flex; align-items:center; gap:6px; } .field.auth ha-icon { --mdc-icon-size:16px; color:var(--vmi-accent); } .formfoot { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:4px; }
 .acard.editing { border-color:var(--vmi-accent); box-shadow:0 0 0 1px var(--vmi-accent) inset; }

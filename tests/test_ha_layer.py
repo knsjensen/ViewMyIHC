@@ -884,3 +884,17 @@ async def test_editing_the_scene_project_needs_a_test_upload_first_and_a_fresh_c
     # the original (saved the first time it was read; identical files are kept once) and the edited version
     assert len(kept) == 2 and kept[1]["notifications"] == kept[0]["notifications"] == 2
     admin_api._failures.clear()
+
+
+async def test_setup_needs_the_disclaimer_accepted(hass):
+    from custom_components.viewmyihc.config_flow import ViewMyIHCConfigFlow
+
+    flow = ViewMyIHCConfigFlow()
+    flow.hass, flow.handler, flow.flow_id, flow.context = hass, DOMAIN, "test", {"source": "user"}
+    flow._async_current_entries = lambda include_ignore=None: []
+    form = await flow.async_step_user()
+    assert form["type"] == "form" and "accept" in str(form["data_schema"].schema)
+    refused = await flow.async_step_user({"accept": False})
+    assert refused["type"] == "form" and refused["errors"] == {"accept": "must_accept"}
+    created = await flow.async_step_user({"accept": True})
+    assert created["type"] == "create_entry" and "disclaimer_accepted" in created["data"]
